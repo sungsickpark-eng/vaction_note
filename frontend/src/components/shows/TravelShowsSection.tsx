@@ -13,6 +13,21 @@ export default function TravelShowsSection() {
 
   return (
     <section>
+      {/* CSS 애니메이션 keyframe */}
+      <style>{`
+        @keyframes tv-scroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .tv-track {
+          animation: tv-scroll 40s linear infinite;
+          will-change: transform;
+        }
+        .tv-track:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
+
       <div className="flex items-center gap-2 mb-4">
         <span className="text-2xl">📺</span>
         <div>
@@ -21,12 +36,31 @@ export default function TravelShowsSection() {
         </div>
       </div>
 
-      {/* 가로 스크롤 카드 */}
-      <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1"
-        style={{ scrollbarWidth: "none" }}>
-        {TRAVEL_SHOWS.map((show) => (
-          <ShowCard key={show.id} show={show} onClick={() => setSelectedShow(show)} />
-        ))}
+      {/* 무한 슬라이드 영역 */}
+      <div className="relative overflow-hidden -mx-6 px-0">
+        {/* 좌우 그라디언트 페이드 */}
+        <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-50 to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-gray-50 to-transparent z-10 pointer-events-none" />
+
+        {/* 슬라이드 트랙 — 카드 2배 복제로 무한 루프 */}
+        <div className="tv-track flex gap-4 w-max py-3 px-6">
+          {/* 원본 세트 */}
+          {TRAVEL_SHOWS.map((show) => (
+            <ShowCard
+              key={`a-${show.id}`}
+              show={show}
+              onClick={() => setSelectedShow(show)}
+            />
+          ))}
+          {/* 복제 세트 (무한 루프용) */}
+          {TRAVEL_SHOWS.map((show) => (
+            <ShowCard
+              key={`b-${show.id}`}
+              show={show}
+              onClick={() => setSelectedShow(show)}
+            />
+          ))}
+        </div>
       </div>
 
       {/* 상세 모달 */}
