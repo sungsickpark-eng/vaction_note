@@ -117,7 +117,9 @@ export function useAiStream(): UseAiStreamResult {
             if (parsed.ping) continue;
             if (parsed.text) {
               accumulated += parsed.text;
-              setText(accumulated);
+              // 실시간으로도 [PLAN] 블록 숨김
+              const visible = accumulated.replace(/\[PLAN\][\s\S]*?\[\/PLAN\]/g, "").trimEnd();
+              setText(visible || accumulated);
             }
           } catch {}
         }
@@ -127,11 +129,10 @@ export function useAiStream(): UseAiStreamResult {
         setError(e.message || "AI 응답을 가져오지 못했습니다");
       }
     } finally {
-      // 스트리밍 완료 후 텍스트 파싱
-      if (accumulated) {
-        const days = parseDaysFromText(accumulated);
-        setParsedDays(days);
-      }
+      // [PLAN]...[/PLAN] 블록 제거 (구버전 백엔드 호환)
+      const cleaned = accumulated.replace(/\[PLAN\][\s\S]*?\[\/PLAN\]/g, "").trimEnd();
+      setText(cleaned);
+      if (cleaned) setParsedDays(parseDaysFromText(cleaned));
       setLoading(false);
     }
   }, []);

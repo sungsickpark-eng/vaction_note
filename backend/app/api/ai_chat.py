@@ -272,38 +272,25 @@ async def trip_plan_stream(
 
     system = (
         "당신은 대한민국 국내 여행 전문 플래너입니다. "
-        "실제 존재하는 장소와 교통편만 안내하고, 한국어로 체계적으로 작성하세요."
+        "실제 존재하는 장소만 안내하고, 한국어로 간결하게 작성하세요. "
+        f"Day 1부터 Day {total_days}까지 빠짐없이 모두 작성하세요."
     )
     user = (
-        f"[여행 조건]\n"
-        f"{origin_line}"
-        f"여행지: **{body.destination}**\n"
-        f"기간: {date_str} ({body.duration}, 총 {total_days}일)\n"
-        f"인원: {body.people}명\n"
-        f"이동 수단: {transport_guide}\n"
-        f"1인당 하루 예산: {body.budget_per_day:,}원\n\n"
-        f"[출력 형식 - 반드시 아래 순서와 형식으로 작성]\n\n"
-        f"**📍 여행 개요**\n"
-        f"(여행지 특징과 이번 여행의 분위기를 2문장으로)\n\n"
-        f"**🚗 이동 방법**\n"
-        f"({'출발지: ' + body.origin + ' 기준 ' if body.origin else ''}{body.transport} 이용 방법, 소요 시간, 비용)\n\n"
-        f"**💰 예산 배분** (1인 기준, {body.duration} 총액)\n"
-        f"• 교통비: 원\n"
-        f"• 숙박비: 원\n"
-        f"• 식비: 원\n"
-        f"• 활동비: 원\n\n"
-        f"**📅 일별 상세 일정** (총 {total_days}일 모두 작성)\n"
-    ) + "".join([
-        f"Day {i} — [날짜 제목]\n• 오전: \n• 오후: \n• 저녁: \n\n"
-        for i in range(1, total_days + 1)
-    ]) + (
-        f"**💡 절약 팁**\n"
-        f"1. (팁 1)\n"
-        f"2. (팁 2)"
+        f"조건: {origin_line or ''}"
+        f"여행지={body.destination}, 기간={body.duration}({total_days}일), "
+        f"인원={body.people}명, 교통={body.transport}, "
+        f"예산={body.budget_per_day:,}원/인/일\n\n"
+        f"아래 순서로 작성하세요:\n\n"
+        f"**📍 여행 개요** (2문장)\n\n"
+        f"**🚗 이동 방법** ({body.transport}, {'출발지 ' + body.origin + ' 기준, ' if body.origin else ''}소요시간·비용)\n\n"
+        f"**💰 예산 배분** (교통비/숙박비/식비/활동비 각각)\n\n"
+        f"**📅 일별 상세 일정** (Day 1~{total_days} 전부)\n"
+        f"각 Day 형식: Day N — 제목 / 오전: 활동 / 오후: 활동 / 저녁: 활동\n\n"
+        f"**💡 절약 팁** (2가지)"
     )
 
     async def generator():
-        async for chunk in _stream_openai(system, user, max_tokens=1800, temperature=0.55):
+        async for chunk in _stream_openai(system, user, max_tokens=2000, temperature=0.5):
             yield chunk
 
     return StreamingResponse(generator(), media_type="text/event-stream",
