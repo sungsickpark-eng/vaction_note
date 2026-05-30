@@ -123,26 +123,11 @@ export default function TripDetailPage() {
                       {day.title && <p className="text-sm text-gray-500">{day.title}</p>}
                     </div>
                   </div>
-                  {day.waypoints.length === 0 ? (
-                    <p className="text-sm text-gray-400 pl-11">경유지 없음</p>
-                  ) : (
-                    <ol className="pl-11 space-y-3">
-                      {day.waypoints.map((wp, wi) => (
-                        <li key={wp.id} className="flex items-start gap-3">
-                          <span className="text-xs font-medium text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full mt-0.5">
-                            {wi + 1}
-                          </span>
-                          <div>
-                            <p className="font-medium text-gray-800">{wp.place_name}</p>
-                            {wp.address && <p className="text-xs text-gray-400">{wp.address}</p>}
-                            {wp.arrival_time && (
-                              <p className="text-xs text-gray-500">도착: {wp.arrival_time}</p>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
+                  <DayItinerary
+                    day={day}
+                    dayMemo={memos.find((m) => m.trip_day_id === day.id)}
+                    onPlanClick={() => router.push(`/trips/${id}/plan`)}
+                  />
                 </div>
               ))
             )}
@@ -196,6 +181,102 @@ export default function TripDetailPage() {
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+// ─── 일별 일정 컴포넌트 ─────────────────────────────────────────────────────────
+
+function parseAiActivities(content: string): string[] {
+  return content
+    .split("\n")
+    .filter((l) => l.trim().startsWith("•"))
+    .map((l) => l.replace(/^[•\s]+/, "").trim())
+    .filter((l) => l.length > 2);
+}
+
+function DayItinerary({
+  day,
+  dayMemo,
+  onPlanClick,
+}: {
+  day: { id: string; waypoints: Waypoint[] };
+  dayMemo?: Memo;
+  onPlanClick: () => void;
+}) {
+  const aiActivities = dayMemo ? parseAiActivities(dayMemo.content) : [];
+  const hasWaypoints = day.waypoints.length > 0;
+  const hasAi = aiActivities.length > 0;
+
+  // 경유지도 없고 AI 활동도 없음
+  if (!hasWaypoints && !hasAi) {
+    return (
+      <div className="pl-11 flex items-center gap-2 text-sm text-gray-400">
+        <span>경유지 없음</span>
+        <button onClick={onPlanClick} className="text-indigo-500 text-xs hover:underline">
+          일정 추가 →
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pl-11 space-y-4">
+      {/* 경유지 (지도 핀) */}
+      {hasWaypoints && (
+        <ol className="space-y-2">
+          {day.waypoints.map((wp, wi) => (
+            <li key={wp.id} className="flex items-start gap-3">
+              <span className="text-xs font-medium text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full mt-0.5 shrink-0">
+                {wi + 1}
+              </span>
+              <div>
+                <p className="font-medium text-gray-800">{wp.place_name}</p>
+                {wp.address && <p className="text-xs text-gray-400">{wp.address}</p>}
+                {/* 경유지에 note(AI 활동 원문)가 있으면 표시 */}
+                {(wp as unknown as { note?: string }).note && (
+                  <p className="text-xs text-gray-500 mt-0.5 italic">
+                    {(wp as unknown as { note?: string }).note}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {/* AI 추천 활동 (경유지와 분리된 경우) */}
+      {hasAi && (
+        <div className={hasWaypoints ? "border-t pt-3" : ""}>
+          {hasWaypoints && (
+            <p className="text-xs font-bold text-indigo-500 mb-2 flex items-center gap-1">
+              🤖 AI 추천 활동
+            </p>
+          )}
+          <ul className="space-y-2">
+            {aiActivities.map((act, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full mt-0.5 shrink-0 font-medium ${
+                  hasWaypoints
+                    ? "bg-purple-50 text-purple-500"
+                    : "bg-indigo-50 text-indigo-500"
+                }`}>
+                  {hasWaypoints ? "🤖" : i + 1}
+                </span>
+                <p className="text-sm text-gray-700 leading-snug">{act}</p>
+              </li>
+            ))}
+          </ul>
+          {!hasWaypoints && (
+            <button
+              onClick={onPlanClick}
+              className="mt-3 text-xs text-indigo-500 hover:underline"
+            >
+              📍 지도에 장소 추가하기 →
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
