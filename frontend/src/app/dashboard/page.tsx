@@ -13,6 +13,8 @@ import { useAiStream } from "@/hooks/useAiStream";
 import dynamic from "next/dynamic";
 import { createTripFromAiPlan, CreateTripProgress } from "@/lib/createTripFromAiPlan";
 
+import TravelShowsSection from "@/components/shows/TravelShowsSection";
+
 const AiPlanMapModal = dynamic(
   () => import("@/components/ai/AiPlanMapModal"),
   { ssr: false }
@@ -122,6 +124,12 @@ export default function DashboardPage() {
             )}
           </>
         )}
+
+        {/* ── 5. 방송 여행 따라하기 ── */}
+        <div className="border-t pt-8">
+          <TravelShowsSection />
+        </div>
+
       </main>
     </div>
   );
