@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const [tab, setTab] = useState<"login" | "register">("login");
@@ -39,8 +39,9 @@ export default function LoginPage() {
       const meRes = await authApi.me();
       setUser(meRes.data);
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "오류가 발생했습니다");
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setError(e.response?.data?.detail || "오류가 발생했습니다");
     } finally {
       setLoading(false);
     }
@@ -117,5 +118,17 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-indigo-400">로딩 중...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
