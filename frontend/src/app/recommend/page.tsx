@@ -44,7 +44,7 @@ export default function RecommendPage() {
 
   // J형 폼
   const [showJForm, setShowJForm] = useState(false);
-  const [jForm, setJForm] = useState({ duration: "2박3일", companion: "커플", theme: "자연" });
+  const [jForm, setJForm] = useState({ duration: "2박3일", companion: "커플", theme: "자연", subTheme: "" });
   const [jResult, setJResult] = useState<{ destination: Destination; itinerary: ItineraryDay[]; meta: Record<string, string> } | null>(null);
 
   const [error, setError] = useState("");
@@ -191,12 +191,37 @@ export default function RecommendPage() {
                 value={jForm.companion}
                 onChange={(v) => setJForm((f) => ({ ...f, companion: v }))}
               />
-              <FormSelect
-                label="🎯 여행 테마"
-                options={["자연", "문화역사", "맛집", "액티비티"]}
-                value={jForm.theme}
-                onChange={(v) => setJForm((f) => ({ ...f, theme: v }))}
-              />
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">🎯 여행 테마 <span className="text-xs text-gray-400 font-normal">(1개 선택)</span></p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { val: "자연", emoji: "🌿" },
+                    { val: "문화역사", emoji: "🏛️" },
+                    { val: "맛집", emoji: "🍽️" },
+                    { val: "액티비티", emoji: "⚡" },
+                    { val: "야경", emoji: "🌃" },
+                    { val: "힐링/스파", emoji: "💆" },
+                    { val: "드라이브", emoji: "🚗" },
+                    { val: "캠핑", emoji: "⛺" },
+                    { val: "감성/사진", emoji: "📷" },
+                    { val: "쇼핑", emoji: "🛍️" },
+                    { val: "축제/이벤트", emoji: "🎪" },
+                    { val: "공연/문화", emoji: "🎭" },
+                  ].map(({ val, emoji }) => (
+                    <button
+                      key={val}
+                      onClick={() => setJForm((f) => ({ ...f, theme: val }))}
+                      className={`py-2 px-2 rounded-xl text-xs font-medium transition flex items-center gap-1 justify-center ${
+                        jForm.theme === val
+                          ? "bg-blue-600 text-white shadow"
+                          : "bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+                      }`}
+                    >
+                      <span>{emoji}</span><span>{val}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <button

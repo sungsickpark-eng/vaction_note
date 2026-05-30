@@ -367,6 +367,19 @@ const RANDOM_DESTINATIONS = [
   { name: "제천", region: "충북", emoji: "🌿", vibe: "청풍호 드라이브" },
   { name: "남해", region: "경남", emoji: "🏝️", vibe: "조용한 섬 힐링" },
   { name: "군산", region: "전북", emoji: "🕰️", vibe: "근대 역사 골목" },
+  { name: "영월", region: "강원", emoji: "⭐", vibe: "별 관측 힐링" },
+  { name: "보성", region: "전남", emoji: "🍵", vibe: "녹차밭 감성" },
+  { name: "평창", region: "강원", emoji: "🐑", vibe: "고원 목장 드라이브" },
+  { name: "춘천", region: "강원", emoji: "🦢", vibe: "닭갈비와 호수" },
+  { name: "포항", region: "경북", emoji: "🦞", vibe: "대게와 일출" },
+  { name: "울산", region: "울산", emoji: "🦢", vibe: "태화강 힐링" },
+  { name: "인천", region: "인천", emoji: "🏮", vibe: "차이나타운 탐방" },
+  { name: "대전", region: "대전", emoji: "🍰", vibe: "성심당과 과학공원" },
+  { name: "합천", region: "경남", emoji: "📿", vibe: "해인사 고요함" },
+  { name: "해남", region: "전남", emoji: "🌅", vibe: "땅끝마을 새 시작" },
+  { name: "순천", region: "전남", emoji: "🌾", vibe: "갈대밭 국가정원" },
+  { name: "부산", region: "부산", emoji: "🌊", vibe: "해운대와 나이트라이프" },
+  { name: "제주", region: "제주", emoji: "🌋", vibe: "무한 액티비티의 섬" },
 ];
 
 // ─── 메인 ────────────────────────────────────────────────────────────────────

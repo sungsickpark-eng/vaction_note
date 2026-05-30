@@ -127,12 +127,37 @@ function RecommendTab() {
               value={form.companion}
               onChange={(v) => setForm((f) => ({ ...f, companion: v }))}
             />
-            <OptionGroup
-              label="여행 테마"
-              options={["자연", "문화역사", "맛집", "액티비티"]}
-              value={form.theme}
-              onChange={(v) => setForm((f) => ({ ...f, theme: v }))}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-2">🎯 여행 테마</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { val: "자연", emoji: "🌿" },
+                  { val: "문화역사", emoji: "🏛️" },
+                  { val: "맛집", emoji: "🍽️" },
+                  { val: "액티비티", emoji: "⚡" },
+                  { val: "야경", emoji: "🌃" },
+                  { val: "힐링/스파", emoji: "💆" },
+                  { val: "드라이브", emoji: "🚗" },
+                  { val: "캠핑", emoji: "⛺" },
+                  { val: "감성/사진", emoji: "📷" },
+                  { val: "쇼핑", emoji: "🛍️" },
+                  { val: "축제/이벤트", emoji: "🎪" },
+                  { val: "공연/문화", emoji: "🎭" },
+                ].map(({ val, emoji }) => (
+                  <button
+                    key={val}
+                    onClick={() => setForm((f) => ({ ...f, theme: val }))}
+                    className={`py-2 px-1 rounded-xl text-xs font-medium transition flex items-center gap-1 justify-center ${
+                      form.theme === val
+                        ? "bg-indigo-600 text-white shadow"
+                        : "bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
+                    }`}
+                  >
+                    <span>{emoji}</span><span>{val}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <button
