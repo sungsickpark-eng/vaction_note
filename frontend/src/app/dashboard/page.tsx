@@ -65,7 +65,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-800">내 여행 목록</h2>
           <Link
             href="/trips/new"
@@ -74,6 +74,19 @@ export default function DashboardPage() {
             <span>+</span> 새 여행 만들기
           </Link>
         </div>
+
+        {/* MBTI 추천 배너 */}
+        <Link
+          href="/recommend"
+          className="flex items-center gap-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-2xl p-5 mb-8 hover:opacity-90 transition shadow-lg"
+        >
+          <span className="text-4xl shrink-0">🧭</span>
+          <div>
+            <p className="font-bold text-lg">MBTI 여행 추천</p>
+            <p className="text-purple-100 text-sm">P형엔 즉흥 여행지, J형엔 완벽 일정을 만들어드려요</p>
+          </div>
+          <span className="ml-auto text-2xl">→</span>
+        </Link>
 
         {isLoading ? (
           <div className="text-center py-20 text-gray-400">불러오는 중...</div>
