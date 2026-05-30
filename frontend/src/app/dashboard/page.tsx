@@ -10,6 +10,12 @@ import { Trip } from "@/types";
 import { format, differenceInDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useAiStream } from "@/hooks/useAiStream";
+import dynamic from "next/dynamic";
+
+const AiPlanMapModal = dynamic(
+  () => import("@/components/ai/AiPlanMapModal"),
+  { ssr: false }
+);
 
 // ─── 메인 ────────────────────────────────────────────────────────────────────
 
@@ -127,6 +133,7 @@ function TripPlannerForm() {
   const { text, parsedDays, loading, error, stream, reset } = useAiStream();
   const resultRef = useRef<HTMLDivElement>(null);
   const [creating, setCreating] = useState(false);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState({
@@ -220,6 +227,15 @@ function TripPlannerForm() {
   };
 
   return (
+    <>
+      {/* 지도 모달 */}
+      <AiPlanMapModal
+        isOpen={mapModalOpen}
+        onClose={() => setMapModalOpen(false)}
+        days={parsedDays}
+        destination={form.destination}
+      />
+
     <section className="bg-white rounded-2xl shadow-md overflow-hidden">
       {/* 헤더 */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 flex items-center gap-3">
@@ -393,21 +409,29 @@ function TripPlannerForm() {
                 )}
 
                 {/* 버튼 */}
-                <div className="flex gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* 지도로 보기 (parsedDays가 있을 때만 활성) */}
+                  <button
+                    onClick={() => setMapModalOpen(true)}
+                    disabled={parsedDays.length === 0}
+                    className="py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-30 transition text-sm flex items-center justify-center gap-1.5"
+                  >
+                    🗺️ 지도로 일정 확인
+                  </button>
                   <button
                     onClick={handleCreateTrip}
                     disabled={creating}
-                    className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1.5"
+                    className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1.5"
                   >
                     {creating ? (
-                      <><span className="animate-spin">⏳</span> 여행 생성 중...</>
+                      <><span className="animate-spin">⏳</span> 생성 중...</>
                     ) : (
-                      <>🗓️ 이 계획으로 여행 만들기{parsedDays.length > 0 && ` (${parsedDays.length}일 일정 포함)`}</>
+                      <>🗓️ 여행 만들기</>
                     )}
                   </button>
                   <button
                     onClick={handleSubmit}
-                    className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition text-sm font-medium"
+                    className="py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition text-sm font-medium"
                   >
                     🔄 다시 추천
                   </button>
@@ -418,6 +442,7 @@ function TripPlannerForm() {
         )}
       </div>
     </section>
+    </>
   );
 }
 
