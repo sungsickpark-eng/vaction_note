@@ -34,7 +34,7 @@ export interface CreateTripProgress {
 /**
  * AI 플랜으로 여행 생성:
  * 1. 여행 생성
- * 2. 일별 메모 추가
+ * 2. 일별 메모 추가 (parsedDays + 원본 텍스트 모두 시도)
  * 3. 활동 → 지오코딩 → 경유지(waypoint) 추가
  */
 export async function createTripFromAiPlan(

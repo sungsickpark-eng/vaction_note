@@ -284,8 +284,15 @@ async def trip_plan_stream(
         f"**📍 여행 개요** (2문장)\n\n"
         f"**🚗 이동 방법** ({body.transport}, {'출발지 ' + body.origin + ' 기준, ' if body.origin else ''}소요시간·비용)\n\n"
         f"**💰 예산 배분** (교통비/숙박비/식비/활동비 각각)\n\n"
-        f"**📅 일별 상세 일정** (Day 1~{total_days} 전부)\n"
-        f"각 Day 형식: Day N — 제목 / 오전: 활동 / 오후: 활동 / 저녁: 활동\n\n"
+        f"**📅 일별 상세 일정** (Day 1부터 Day {total_days}까지 모두 작성)\n"
+        f"반드시 아래 형식으로 각 Day를 줄바꿈하여 작성:\n"
+        f"Day 1 — [제목]\n"
+        f"• 오전: [구체적인 활동과 장소]\n"
+        f"• 오후: [구체적인 활동과 장소]\n"
+        f"• 저녁: [구체적인 활동과 장소]\n\n"
+        f"Day 2 — [제목]\n"
+        f"• 오전: ...\n"
+        f"(Day {total_days}까지 동일 형식 반복)\n\n"
         f"**💡 절약 팁** (2가지)"
     )
 

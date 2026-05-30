@@ -20,7 +20,7 @@ interface UseAiStreamResult {
 
 /**
  * 스트리밍 완료 후 텍스트에서 Day 1 / Day 2 … 패턴을 파싱해 일정 추출.
- * AI가 자유 형식으로 써도 동작.
+ * 멀티라인 불릿(• 오전: ...) 및 슬래시(/ 오전: ...) 형식 모두 지원.
  */
 function parseDaysFromText(text: string): AiDay[] {
   const days: AiDay[] = [];
@@ -29,33 +29,53 @@ function parseDaysFromText(text: string): AiDay[] {
   const sections = text.split(/(?=\*{0,2}Day\s+\d+[\s—–-])/i);
 
   for (const section of sections) {
-    const headerMatch = section.match(/Day\s+(\d+)[\s—–-]+([^\n*]*)/i);
+    const headerMatch = section.match(/Day\s+(\d+)[\s—–-]+([^\n/]*)/i);
     if (!headerMatch) continue;
 
     const dayNum = parseInt(headerMatch[1]);
     const titleRaw = headerMatch[2].replace(/\*+/g, "").trim();
 
-    // 활동 라인: • 또는 - 또는 · 로 시작하거나, "오전:", "오후:", "저녁:" 패턴
-    const lines = section
-      .split("\n")
-      .map((l) => l.replace(/^\s*[•\-·]\s*/, "").trim())
-      .filter(
-        (l) =>
-          l.length > 4 &&
-          !l.match(/^(\*{0,2})Day\s+\d+/i) &&  // 헤더 라인 제외
-          !l.match(/^#+\s/)                      // 마크다운 헤딩 제외
-      );
+    let activities: string[] = [];
 
-    if (lines.length === 0) continue;
+    // ── 방식 1: 멀티라인 불릿 (• 오전: ..., • 오후: ...) ──────────────────
+    const bulletLines = section
+      .split("\n")
+      .filter((l) => /^\s*[•\-·]/.test(l))
+      .map((l) => l.replace(/^\s*[•\-·]\s*/, "").trim())
+      .filter((l) => l.length > 2);
+
+    if (bulletLines.length > 0) {
+      activities = bulletLines.slice(0, 6);
+    } else {
+      // ── 방식 2: 슬래시 구분 (Day N — 제목 / 오전: ... / 오후: ...) ──────
+      const fullLine = section.replace(/\n/g, " ").trim();
+      const slashParts = fullLine.split("/")
+        .slice(1) // 제목 부분 제외
+        .map((p) => p.trim())
+        .filter((p) => p.length > 2);
+
+      if (slashParts.length > 0) {
+        activities = slashParts.slice(0, 6);
+      } else {
+        // ── 방식 3: 오전/오후/저녁 키워드 직접 추출 ──────────────────────
+        const timePattern = /(오전|오후|저녁|낮|밤)[:\s：]([^\n/]{3,60})/g;
+        let m;
+        while ((m = timePattern.exec(section)) !== null) {
+          activities.push(`${m[1]}: ${m[2].trim()}`);
+          if (activities.length >= 6) break;
+        }
+      }
+    }
+
+    if (activities.length === 0) continue;
 
     days.push({
       day: dayNum,
       title: titleRaw || `Day ${dayNum}`,
-      activities: lines.slice(0, 6), // 최대 6개 활동
+      activities,
     });
   }
 
-  // 숫자 순 정렬
   return days.sort((a, b) => a.day - b.day);
 }
 
