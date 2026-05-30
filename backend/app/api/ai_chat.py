@@ -231,7 +231,7 @@ async def trip_plan_stream(
     )
 
     async def generator():
-        async for chunk in _stream_openai(system, user, max_tokens=600):
+        async for chunk in _stream_openai(system, user, max_tokens=1500):
             yield chunk
 
     return StreamingResponse(generator(), media_type="text/event-stream",

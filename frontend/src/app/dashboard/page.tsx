@@ -327,19 +327,47 @@ function TripPlannerForm() {
             </div>
 
             {!loading && text && (
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={handleCreateTrip}
-                  className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition text-sm"
-                >
-                  🗓️ 이 계획으로 여행 만들기
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition text-sm font-medium"
-                >
-                  🔄 다시 추천
-                </button>
+              <div className="space-y-3 mt-3">
+                {/* 대중교통 예약 링크 */}
+                {form.transport === "대중교통" && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                    <p className="text-xs font-bold text-blue-700 mb-2">🚌 대중교통 예약 바로가기</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { label: "🚆 KTX·기차", url: "https://www.letskorail.com", color: "bg-red-500" },
+                        { label: "🚄 SRT", url: "https://etk.srail.kr", color: "bg-blue-600" },
+                        { label: "🚌 고속버스", url: "https://www.kobus.co.kr", color: "bg-green-600" },
+                        { label: "✈️ 항공권", url: "https://flight.naver.com", color: "bg-sky-500" },
+                      ].map(({ label, url, color }) => (
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`${color} text-white text-xs font-bold py-2 px-2 rounded-lg text-center hover:opacity-90 transition`}
+                        >
+                          {label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 버튼 */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCreateTrip}
+                    className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition text-sm"
+                  >
+                    🗓️ 이 계획으로 여행 만들기
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition text-sm font-medium"
+                  >
+                    🔄 다시 추천
+                  </button>
+                </div>
               </div>
             )}
           </div>
