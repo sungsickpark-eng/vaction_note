@@ -32,7 +32,7 @@ export const TRAVEL_SHOWS: TravelShow[] = [
     region: "전남",
     emoji: "🐟",
     gradient: "from-blue-500 to-cyan-600",
-    youtubeId: "qSgBxnmTHMs", // 삼시세끼 어촌편 공식 클립
+    youtubeId: "zmjAZIcYCqU", // 삼시세끼 어촌편3 EP.1 선공개 (이서진·에릭·윤균상)
     tags: ["섬여행", "자급자족", "낚시", "힐링"],
     duration: "2박3일",
     cast: "이서진·옥택연·윤균상",
@@ -76,6 +76,7 @@ export const TRAVEL_SHOWS: TravelShow[] = [
     region: "강원",
     emoji: "🏄",
     gradient: "from-orange-400 to-yellow-500",
+    youtubeId: "1lmjcb-4HDw", // 1박2일 시즌4 선공개 KBS 공식
     tags: ["서핑", "낙산사", "속초", "맛집"],
     duration: "1박2일",
     cast: "딘딘·김선호·라비·문세윤",
@@ -110,6 +111,7 @@ export const TRAVEL_SHOWS: TravelShow[] = [
     region: "경북",
     emoji: "🏛️",
     gradient: "from-amber-500 to-orange-600",
+    youtubeId: "D-ljYJvwrX0", // 알쓸신잡3 EP.1 tvN 공식
     tags: ["문화역사", "불국사", "황리단길", "야경"],
     duration: "2박3일",
     cast: "유희열·유현준·장동선·김영하",
@@ -153,6 +155,7 @@ export const TRAVEL_SHOWS: TravelShow[] = [
     region: "제주",
     emoji: "🚐",
     gradient: "from-green-500 to-teal-600",
+    youtubeId: "UDKd7zzoga0", // 바퀴달린집 제주도 편 예고 tvN 공식
     tags: ["캠핑카", "제주", "드라이브", "자유여행"],
     duration: "3박4일",
     cast: "성동일·이동휘·여진구",
@@ -205,6 +208,7 @@ export const TRAVEL_SHOWS: TravelShow[] = [
     region: "경북",
     emoji: "🏯",
     gradient: "from-stone-500 to-amber-700",
+    youtubeId: "g3Si_Y4tnto", // 윤스테이 최초공개 EP.1 tvN 공식
     tags: ["한옥", "문화역사", "전통", "힐링"],
     duration: "1박2일",
     cast: "윤여정·이서진·박서준·최우식",
@@ -311,11 +315,12 @@ export const TRAVEL_SHOWS: TravelShow[] = [
     id: "battle-trip-jeonju",
     title: "배틀트립 - 전주편",
     subtitle: "국내파 vs 해외파의 전주 한옥마을 대결",
-    channel: "MBC",
+    channel: "KBS2",
     destination: "전주",
     region: "전북",
     emoji: "🏯",
     gradient: "from-red-500 to-rose-600",
+    youtubeId: "-jfgIQJh_go", // 배틀트립 전주 경기전 역사투어 KBS 공식
     tags: ["한옥마을", "맛집", "야시장", "문화"],
     duration: "1박2일",
     cast: "박수영·세연·박세리·장도연",
