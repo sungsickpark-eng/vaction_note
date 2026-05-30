@@ -54,17 +54,18 @@ class ChatRequest(BaseModel):
 
 class TripPlanRequest(BaseModel):
     destination: str
+    origin: str = ""               # 출발지
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     duration: str = "2박3일"
     people: int = 2
     budget_per_day: int = 100000   # 1인당 하루 예산 (원)
-    transport: str = "자가용"       # 자가용 | 대중교통 | 도보
+    transport: str = "자가용"       # 자가용 | 렌트카 | 대중교통 | 도보
 
 
 # ─── 공통 스트리밍 유틸 ───────────────────────────────────────────────────────
 
-async def _stream_openai(system: str, user: str, max_tokens: int = 400) -> AsyncIterator[str]:
+async def _stream_openai(system: str, user: str, max_tokens: int = 400, temperature: float = 0.6) -> AsyncIterator[str]:
     import asyncio
 
     client = _get_client()
@@ -72,7 +73,7 @@ async def _stream_openai(system: str, user: str, max_tokens: int = 400) -> Async
         model="gpt-3.5-turbo",
         messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
         max_tokens=max_tokens,
-        temperature=0.8,
+        temperature=temperature,
         stream=True,
     )
 
@@ -132,19 +133,32 @@ async def recommend_stream(
     activity = "조용한 힐링(산책·카페·자연·독서)" if is_I else "활동적(서핑·트레킹·야시장·액티비티)"
     style = "즉흥적이고 자유로운" if is_P else "계획적이고 꼼꼼한"
 
-    system = "당신은 한국 국내 여행 전문가입니다. 한국어로 간결하고 열정적으로 답하세요."
+    system = (
+        "당신은 대한민국 국내 여행 전문가입니다. "
+        "반드시 대한민국 내에 실제 존재하는 도시나 지역만 추천하세요. "
+        "한국어로 답하세요."
+    )
     user = (
-        f"MBTI: {body.mbti} ({style} 성향, {activity} 여행 선호)\n"
-        f"기간: {body.duration}, 동행: {body.companion}, 테마: {body.theme}\n\n"
-        f"국내 여행지 1곳을 추천해주세요. 다음 형식으로:\n"
-        f"📍 **[여행지명]** — [한 줄 설명]\n\n"
-        f"**{body.mbti}에게 딱인 이유** (2-3문장)\n\n"
-        f"**꼭 해볼 것**\n1. ...\n2. ...\n3. ...\n\n"
-        f"**💡 핵심 팁** (1가지)"
+        f"다음 조건에 맞는 국내 여행지 1곳을 추천해주세요.\n\n"
+        f"[조건]\n"
+        f"- MBTI: {body.mbti} ({style} 성향)\n"
+        f"- 선호 활동: {activity}\n"
+        f"- 여행 기간: {body.duration}\n"
+        f"- 동행자: {body.companion}\n"
+        f"- 테마: {body.theme}\n\n"
+        f"[출력 형식 - 반드시 이 형식으로만]\n"
+        f"📍 **[여행지명]** — [여행지 한 줄 소개]\n\n"
+        f"**{body.mbti}에게 딱인 이유**\n"
+        f"(이 MBTI 성향과 테마가 왜 잘 맞는지 2문장)\n\n"
+        f"**꼭 해볼 것**\n"
+        f"1. [구체적인 활동명과 장소]\n"
+        f"2. [구체적인 활동명과 장소]\n"
+        f"3. [구체적인 활동명과 장소]\n\n"
+        f"**💡 여행 팁** (1가지, 실용적인 정보)"
     )
 
     async def generator():
-        async for chunk in _stream_openai(system, user, max_tokens=450):
+        async for chunk in _stream_openai(system, user, max_tokens=500, temperature=0.5):
             yield chunk
 
     return StreamingResponse(generator(), media_type="text/event-stream",
@@ -242,23 +256,54 @@ async def trip_plan_stream(
         "도보": "도보 중심 (걸어서 이동 가능한 반경 내 일정, 각 구간 도보 거리·소요 시간 명시)",
     }.get(body.transport, body.transport)
 
-    system = "당신은 한국 국내 여행 전문 플래너입니다. 한국어로 실용적이고 체계적으로 답하세요."
+    origin_line = f"출발지: **{body.origin}** → {body.destination}\n" if body.origin else ""
+
+    # 날짜 수 계산
+    if body.start_date and body.end_date:
+        from datetime import date as date_cls
+        s = date_cls.fromisoformat(body.start_date)
+        e = date_cls.fromisoformat(body.end_date)
+        total_days = (e - s).days + 1
+    else:
+        # 기간 문자열에서 숫자 추출 (예: "2박3일" → 3일)
+        import re
+        m = re.search(r"(\d+)일", body.duration)
+        total_days = int(m.group(1)) if m else 2
+
+    system = (
+        "당신은 대한민국 국내 여행 전문 플래너입니다. "
+        "실제 존재하는 장소와 교통편만 안내하고, 한국어로 체계적으로 작성하세요."
+    )
     user = (
+        f"[여행 조건]\n"
+        f"{origin_line}"
         f"여행지: **{body.destination}**\n"
-        f"기간: {date_str} ({body.duration})\n"
+        f"기간: {date_str} ({body.duration}, 총 {total_days}일)\n"
         f"인원: {body.people}명\n"
-        f"이동 수단: **{transport_guide}**\n"
-        f"1인당 하루 예산: {body.budget_per_day:,}원 (총 일일 예산: {budget_total:,}원)\n\n"
-        f"위 조건에 딱 맞는 여행 계획을 만들어주세요. 아래 형식으로:\n\n"
-        f"**📍 여행 개요** (2문장)\n\n"
-        f"**🚗 이동 방법** ({body.transport} 기준 주요 이동 경로 및 팁)\n\n"
-        f"**💰 예산 배분** (교통·숙박·식비·활동비 각각 금액)\n\n"
-        f"**📅 일별 상세 일정** (각 Day마다 오전·오후·저녁 활동, {body.transport} 이동 동선 포함)\n\n"
-        f"**💡 절약 팁** (예산 내 즐기는 핵심 팁 2가지)"
+        f"이동 수단: {transport_guide}\n"
+        f"1인당 하루 예산: {body.budget_per_day:,}원\n\n"
+        f"[출력 형식 - 반드시 아래 순서와 형식으로 작성]\n\n"
+        f"**📍 여행 개요**\n"
+        f"(여행지 특징과 이번 여행의 분위기를 2문장으로)\n\n"
+        f"**🚗 이동 방법**\n"
+        f"({'출발지: ' + body.origin + ' 기준 ' if body.origin else ''}{body.transport} 이용 방법, 소요 시간, 비용)\n\n"
+        f"**💰 예산 배분** (1인 기준, {body.duration} 총액)\n"
+        f"• 교통비: 원\n"
+        f"• 숙박비: 원\n"
+        f"• 식비: 원\n"
+        f"• 활동비: 원\n\n"
+        f"**📅 일별 상세 일정** (총 {total_days}일 모두 작성)\n"
+    ) + "".join([
+        f"Day {i} — [날짜 제목]\n• 오전: \n• 오후: \n• 저녁: \n\n"
+        for i in range(1, total_days + 1)
+    ]) + (
+        f"**💡 절약 팁**\n"
+        f"1. (팁 1)\n"
+        f"2. (팁 2)"
     )
 
     async def generator():
-        async for chunk in _stream_openai(system, user, max_tokens=1500):
+        async for chunk in _stream_openai(system, user, max_tokens=1800, temperature=0.55):
             yield chunk
 
     return StreamingResponse(generator(), media_type="text/event-stream",
