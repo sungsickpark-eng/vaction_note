@@ -322,9 +322,26 @@ function ChatTab() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const [currentAiMsg, setCurrentAiMsg] = useState("");
+  // ref로 최신 스트리밍 텍스트 캡처 (state 배치 문제 우회)
+  const capturedRef = useRef("");
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, text]);
+
+  // 스트리밍 중 텍스트를 ref에 동기적으로 저장
+  useEffect(() => {
+    if (text) capturedRef.current = text;
+  }, [text]);
+
+  // loading이 false로 바뀔 때 ref의 텍스트를 messages에 추가
+  useEffect(() => {
+    if (!loading && capturedRef.current) {
+      const finalText = capturedRef.current;
+      capturedRef.current = "";
+      setMessages((prev) => [...prev, { role: "ai", content: finalText }]);
+      reset();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const QUICK_QUESTIONS = [
     "혼자 여행하기 좋은 국내 여행지 추천해줘",
@@ -339,34 +356,12 @@ function ChatTab() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
 
-    // 이전 대화를 context로 전달
     const context = messages.slice(-4).map((m) =>
       `${m.role === "user" ? "사용자" : "AI"}: ${m.content}`
     ).join("\n");
 
     await stream("/api/ai/chat/stream", { message: userMsg, context });
   };
-
-  // 스트리밍 완료 시 messages에 추가
-  useEffect(() => {
-    if (!loading && text && text !== currentAiMsg) {
-      setCurrentAiMsg(text);
-    }
-  }, [loading, text]);
-
-  useEffect(() => {
-    if (!loading && currentAiMsg) {
-      setMessages((prev) => {
-        // 마지막이 AI 메시지면 업데이트, 아니면 추가
-        if (prev.length && prev[prev.length - 1].role === "ai") {
-          return [...prev.slice(0, -1), { role: "ai", content: currentAiMsg }];
-        }
-        return [...prev, { role: "ai", content: currentAiMsg }];
-      });
-      reset();
-      setCurrentAiMsg("");
-    }
-  }, [loading]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -394,15 +389,15 @@ function ChatTab() {
           </div>
         ))}
 
-        {/* 스트리밍 중 */}
-        {loading && (
+        {/* 스트리밍 중: loading이 true일 때만 표시 (완료되면 messages에 추가됨) */}
+        {(loading || (!loading && text && messages[messages.length - 1]?.role !== "ai")) && (
           <div className="flex justify-start">
             <span className="text-lg mr-2 shrink-0 mt-1">🤖</span>
             <div className="max-w-[80%] px-4 py-2.5 rounded-2xl bg-gray-100 text-sm text-gray-800 rounded-bl-md">
-              {text ? (
+              {(text || capturedRef.current) ? (
                 <>
-                  <AiMarkdown text={text} />
-                  <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-0.5 align-middle" />
+                  <AiMarkdown text={text || capturedRef.current} />
+                  {loading && <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-0.5 align-middle" />}
                 </>
               ) : (
                 <span className="text-gray-400 flex items-center gap-1">
