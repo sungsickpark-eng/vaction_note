@@ -56,6 +56,21 @@ export async function createTripFromAiPlan(
   const token = localStorage.getItem("access_token");
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
+  // 날짜 미입력 시 오늘부터 parsedDays 일수 만큼 자동 설정
+  function todayStr(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  const effectiveStart = startDate || (parsedDays.length > 0 ? todayStr() : undefined);
+  const effectiveEnd = endDate || (parsedDays.length > 0
+    ? (() => {
+        const [y,m,d] = (effectiveStart!).split("-").map(Number);
+        const dt = new Date(y, m-1, d + parsedDays.length - 1);
+        return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+      })()
+    : undefined);
+
   // ─ 1. 여행 생성 ────────────────────────────────────────────────────────────
   onProgress?.({ stage: "trip" });
   const tripRes = await fetch(`${API}/api/trips`, {
@@ -63,31 +78,36 @@ export async function createTripFromAiPlan(
     body: JSON.stringify({
       title,
       region: destination,
-      start_date: startDate || undefined,
-      end_date: endDate || undefined,
+      start_date: effectiveStart,
+      end_date: effectiveEnd,
       visibility: "private",
     }),
   });
   const trip = await tripRes.json();
   if (!trip.id) throw new Error("여행 생성 실패");
 
-  if (!parsedDays.length || !startDate) return trip.id;
+  if (!parsedDays.length || !effectiveStart) return trip.id;
 
   // ─ 2. 일별 Trip Day 목록 가져오기 ──────────────────────────────────────────
   const daysRes = await fetch(`${API}/api/trips/${trip.id}/days`, { headers });
   const tripDays: { id: string; date: string }[] = await daysRes.json();
 
-  // 시간대 문제 없이 날짜 계산 (YYYY-MM-DD 문자열 직접 조작)
-  function addDays(dateStr: string, days: number): string {
+  // 시간대 문제 없이 날짜 계산
+  function addDays(dateStr: string, n: number): string {
     const [y, m, d] = dateStr.split("-").map(Number);
-    const date = new Date(y, m - 1, d + days);
+    const date = new Date(y, m - 1, d + n);
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  // 활동에서 • 접두사 제거 (이중 추가 방지)
+  function cleanActivity(a: string): string {
+    return a.replace(/^[•\-·]\s*/, "").trim();
   }
 
   const totalDays = parsedDays.length;
 
   for (const day of parsedDays) {
-    const dateStr = addDays(startDate, day.day - 1);
+    const dateStr = addDays(effectiveStart!, day.day - 1);
     const tripDay = tripDays.find((d) => d.date === dateStr);
     if (!tripDay) continue;
 
@@ -95,7 +115,7 @@ export async function createTripFromAiPlan(
     onProgress?.({ stage: "memo", day: day.day, total: totalDays });
     const content =
       `📅 Day ${day.day} — ${day.title}\n\n` +
-      day.activities.map((a) => `• ${a}`).join("\n");
+      day.activities.map((a) => `• ${cleanActivity(a)}`).join("\n");
     await fetch(`${API}/api/trips/${trip.id}/memos`, {
       method: "POST", headers,
       body: JSON.stringify({ content, trip_day_id: tripDay.id }),
@@ -106,7 +126,7 @@ export async function createTripFromAiPlan(
     for (const activity of day.activities) {
       if (isTransitOnly(activity)) continue;
 
-      const query = extractPlaceName(activity, destination);
+      const query = extractPlaceName(cleanActivity(activity), destination);
       onProgress?.({ stage: "waypoint", day: day.day, total: totalDays, place: query });
 
       try {

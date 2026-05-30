@@ -84,6 +84,17 @@ function ShowDetailModal({ show, onClose }: { show: TravelShow; onClose: () => v
   const [creating, setCreating] = useState(false);
   const [progress, setProgress] = useState<CreateTripProgress | null>(null);
 
+  // 출발일 (기본: 오늘)
+  const today = new Date().toISOString().split("T")[0];
+  const [startDate, setStartDate] = useState(today);
+
+  // 종료일 자동 계산 (show 일수 기반)
+  const endDate = (() => {
+    const [y, m, d] = startDate.split("-").map(Number);
+    const dt = new Date(y, m - 1, d + show.days.length - 1);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  })();
+
   const handleStart = async () => {
     setCreating(true);
     setProgress({ stage: "trip" });
@@ -91,12 +102,15 @@ function ShowDetailModal({ show, onClose }: { show: TravelShow; onClose: () => v
       const parsedDays: AiDay[] = show.days.map((d) => ({
         day: d.day,
         title: d.title,
-        activities: d.activities,
+        // • 접두사 제거 (createTripFromAiPlan에서 재추가)
+        activities: d.activities.map((a) => a.replace(/^[•\-·]\s*/, "").trim()),
       }));
 
       const tripId = await createTripFromAiPlan(
         {
           destination: show.destination,
+          startDate,
+          endDate,
           parsedDays,
           title: `[방송 따라하기] ${show.title}`,
         },
@@ -172,6 +186,27 @@ function ShowDetailModal({ show, onClose }: { show: TravelShow; onClose: () => v
             </div>
           </div>
 
+          {/* 출발일 선택 */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <p className="text-xs font-bold text-gray-600 mb-2">🗓️ 출발 예정일</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="date"
+                value={startDate}
+                min={today}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+              <div className="text-right shrink-0">
+                <p className="text-xs text-gray-500">종료</p>
+                <p className="text-sm font-bold text-gray-800">{endDate.replace(/-/g, ".")}</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              📌 {show.duration} 일정 · {show.days.length}일간 {show.destination} 여행
+            </p>
+          </div>
+
           {/* 실행 버튼 */}
           <button
             onClick={handleStart}
@@ -183,8 +218,8 @@ function ShowDetailModal({ show, onClose }: { show: TravelShow; onClose: () => v
                 <span className="animate-spin">⏳</span>
                 <span className="text-sm">
                   {progress?.stage === "trip" && "여행 생성 중..."}
-                  {progress?.stage === "memo" && `Day ${progress.day} 일정 저장...`}
-                  {progress?.stage === "waypoint" && `Day ${progress.day} 장소 연결...`}
+                  {progress?.stage === "memo" && `Day ${progress.day} 일정 저장 중...`}
+                  {progress?.stage === "waypoint" && `Day ${progress.day} 장소 지도 연결 중...`}
                 </span>
               </>
             ) : (
