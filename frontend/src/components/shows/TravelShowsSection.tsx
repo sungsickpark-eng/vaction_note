@@ -77,28 +77,59 @@ export default function TravelShowsSection() {
 // ─── 썸네일 카드 ──────────────────────────────────────────────────────────────
 
 function ShowCard({ show, onClick }: { show: TravelShow; onClick: () => void }) {
+  const thumbUrl = show.youtubeId
+    ? `https://img.youtube.com/vi/${show.youtubeId}/hqdefault.jpg`
+    : null;
+
   return (
     <button
       onClick={onClick}
-      className="shrink-0 w-48 text-left rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all group"
+      className="shrink-0 w-52 text-left rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all group"
     >
       {/* 썸네일 */}
-      <div className={`h-32 bg-gradient-to-br ${show.gradient} flex flex-col items-center justify-center relative`}>
-        <span className="text-5xl">{show.emoji}</span>
+      <div className={`h-32 bg-gradient-to-br ${show.gradient} flex flex-col items-center justify-center relative overflow-hidden`}>
+        {thumbUrl ? (
+          // YouTube 썸네일 이미지
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbUrl}
+              alt={show.title}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => {
+                // 로드 실패 시 이모지 폴백
+                e.currentTarget.style.display = "none";
+              }}
+            />
+            {/* 다크 오버레이 */}
+            <div className="absolute inset-0 bg-black/30" />
+          </>
+        ) : (
+          <span className="text-5xl">{show.emoji}</span>
+        )}
+
         {/* 채널 배지 */}
-        <span className="absolute top-2 left-2 text-xs bg-black/40 text-white px-2 py-0.5 rounded-full font-bold">
+        <span className="absolute top-2 left-2 text-xs bg-black/60 text-white px-2 py-0.5 rounded-full font-bold z-10">
           {show.channel}
         </span>
         {/* 기간 배지 */}
-        <span className="absolute top-2 right-2 text-xs bg-white/30 text-white px-2 py-0.5 rounded-full font-medium">
+        <span className="absolute top-2 right-2 text-xs bg-black/40 text-white px-2 py-0.5 rounded-full font-medium z-10">
           {show.duration}
         </span>
+        {/* 이미지일 때 하단 프로그램명 표시 */}
+        {thumbUrl && (
+          <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-black/70 to-transparent z-10">
+            <p className="text-white text-xs font-bold leading-tight truncate">{show.title}</p>
+          </div>
+        )}
+        {/* 이모지 폴백일 때 */}
+        {!thumbUrl && <span className="text-5xl z-10">{show.emoji}</span>}
       </div>
 
       {/* 정보 */}
       <div className="bg-white p-3">
         <p className="font-black text-gray-800 text-sm leading-tight truncate">{show.title}</p>
-        <p className="text-xs text-gray-400 truncate mt-0.5">{show.destination}</p>
+        <p className="text-xs text-gray-400 truncate mt-0.5">📍 {show.destination}</p>
         <div className="flex flex-wrap gap-1 mt-2">
           {show.tags.slice(0, 2).map((tag) => (
             <span key={tag} className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
@@ -164,11 +195,29 @@ function ShowDetailModal({ show, onClose }: { show: TravelShow; onClose: () => v
       <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
 
         {/* 헤더 썸네일 */}
-        <div className={`bg-gradient-to-br ${show.gradient} p-8 text-white relative`}>
-          <button onClick={onClose}
-            className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl">✕</button>
+        <div className={`bg-gradient-to-br ${show.gradient} p-8 text-white relative overflow-hidden`}>
+          {/* YouTube 썸네일 배경 */}
+          {show.youtubeId && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://img.youtube.com/vi/${show.youtubeId}/maxresdefault.jpg`}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-40"
+                onError={(e) => {
+                  // maxresdefault 없으면 hqdefault 시도
+                  (e.currentTarget as HTMLImageElement).src =
+                    `https://img.youtube.com/vi/${show.youtubeId}/hqdefault.jpg`;
+                }}
+              />
+              <div className="absolute inset-0 bg-black/50" />
+            </>
+          )}
 
-          <div className="flex items-start gap-4">
+          <button onClick={onClose}
+            className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl z-10">✕</button>
+
+          <div className="flex items-start gap-4 relative z-10">
             <span className="text-6xl">{show.emoji}</span>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">

@@ -18,6 +18,8 @@ export interface TravelShow {
   description: string;
   cast: string;
   days: ShowDay[];
+  /** YouTube 영상 ID (있으면 썸네일 자동 사용) */
+  youtubeId?: string;
 }
 
 export const TRAVEL_SHOWS: TravelShow[] = [
@@ -30,6 +32,7 @@ export const TRAVEL_SHOWS: TravelShow[] = [
     region: "전남",
     emoji: "🐟",
     gradient: "from-blue-500 to-cyan-600",
+    youtubeId: "qSgBxnmTHMs", // 삼시세끼 어촌편 공식 클립
     tags: ["섬여행", "자급자족", "낚시", "힐링"],
     duration: "2박3일",
     cast: "이서진·옥택연·윤균상",
