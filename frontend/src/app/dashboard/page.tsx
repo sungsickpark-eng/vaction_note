@@ -75,18 +75,31 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* MBTI 추천 배너 */}
-        <Link
-          href="/recommend"
-          className="flex items-center gap-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-2xl p-5 mb-8 hover:opacity-90 transition shadow-lg"
-        >
-          <span className="text-4xl shrink-0">🧭</span>
-          <div>
-            <p className="font-bold text-lg">MBTI 여행 추천</p>
-            <p className="text-purple-100 text-sm">P형엔 즉흥 여행지, J형엔 완벽 일정을 만들어드려요</p>
-          </div>
-          <span className="ml-auto text-2xl">→</span>
-        </Link>
+        {/* 배너 영역 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+          <Link
+            href="/recommend"
+            className="flex items-center gap-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-2xl p-4 hover:opacity-90 transition shadow-md"
+          >
+            <span className="text-3xl shrink-0">🧭</span>
+            <div>
+              <p className="font-bold">MBTI 여행 추천</p>
+              <p className="text-purple-100 text-xs">성향에 맞는 여행지 추천</p>
+            </div>
+            <span className="ml-auto">→</span>
+          </Link>
+          <Link
+            href="/mission"
+            className="flex items-center gap-3 bg-gradient-to-r from-gray-800 to-gray-600 text-white rounded-2xl p-4 hover:opacity-90 transition shadow-md"
+          >
+            <span className="text-3xl shrink-0">🎯</span>
+            <div>
+              <p className="font-bold">미션 여행</p>
+              <p className="text-gray-300 text-xs">뚜벅이·핸드폰 없이·뽑기 여행</p>
+            </div>
+            <span className="ml-auto">→</span>
+          </Link>
+        </div>
 
         {isLoading ? (
           <div className="text-center py-20 text-gray-400">불러오는 중...</div>
