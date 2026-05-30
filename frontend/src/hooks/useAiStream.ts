@@ -10,36 +10,56 @@ export interface AiDay {
 }
 
 interface UseAiStreamResult {
-  text: string;           // [PLAN]...[/PLAN] 제거된 표시용 텍스트
-  rawText: string;        // 원본 전체 텍스트
-  parsedDays: AiDay[];    // 파싱된 일별 일정
+  text: string;
+  parsedDays: AiDay[];
   loading: boolean;
   error: string;
   stream: (endpoint: string, body: object) => Promise<void>;
   reset: () => void;
 }
 
-/** [PLAN]{...}[/PLAN] 블록을 추출하고 제거 */
-function extractPlan(raw: string): { clean: string; days: AiDay[] } {
-  const match = raw.match(/\[PLAN\]([\s\S]*?)\[\/PLAN\]/);
-  if (!match) return { clean: raw, days: [] };
+/**
+ * 스트리밍 완료 후 텍스트에서 Day 1 / Day 2 … 패턴을 파싱해 일정 추출.
+ * AI가 자유 형식으로 써도 동작.
+ */
+function parseDaysFromText(text: string): AiDay[] {
+  const days: AiDay[] = [];
 
-  try {
-    const json = JSON.parse(match[1].trim());
-    const days: AiDay[] = (json.days ?? []).map((d: AiDay) => ({
-      day: d.day,
-      title: d.title || `Day ${d.day}`,
-      activities: Array.isArray(d.activities) ? d.activities : [],
-    }));
-    const clean = raw.replace(/\[PLAN\][\s\S]*?\[\/PLAN\]/, "").trimEnd();
-    return { clean, days };
-  } catch {
-    return { clean: raw, days: [] };
+  // "Day 1", "Day 2" 헤더를 기준으로 섹션 분리
+  const sections = text.split(/(?=\*{0,2}Day\s+\d+[\s—–-])/i);
+
+  for (const section of sections) {
+    const headerMatch = section.match(/Day\s+(\d+)[\s—–-]+([^\n*]*)/i);
+    if (!headerMatch) continue;
+
+    const dayNum = parseInt(headerMatch[1]);
+    const titleRaw = headerMatch[2].replace(/\*+/g, "").trim();
+
+    // 활동 라인: • 또는 - 또는 · 로 시작하거나, "오전:", "오후:", "저녁:" 패턴
+    const lines = section
+      .split("\n")
+      .map((l) => l.replace(/^\s*[•\-·]\s*/, "").trim())
+      .filter(
+        (l) =>
+          l.length > 4 &&
+          !l.match(/^(\*{0,2})Day\s+\d+/i) &&  // 헤더 라인 제외
+          !l.match(/^#+\s/)                      // 마크다운 헤딩 제외
+      );
+
+    if (lines.length === 0) continue;
+
+    days.push({
+      day: dayNum,
+      title: titleRaw || `Day ${dayNum}`,
+      activities: lines.slice(0, 6), // 최대 6개 활동
+    });
   }
+
+  // 숫자 순 정렬
+  return days.sort((a, b) => a.day - b.day);
 }
 
 export function useAiStream(): UseAiStreamResult {
-  const [rawText, setRawText] = useState("");
   const [text, setText] = useState("");
   const [parsedDays, setParsedDays] = useState<AiDay[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +71,6 @@ export function useAiStream(): UseAiStreamResult {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    setRawText("");
     setText("");
     setParsedDays([]);
     setError("");
@@ -89,21 +108,16 @@ export function useAiStream(): UseAiStreamResult {
         buffer = lines.pop() ?? "";
 
         for (const line of lines) {
-          // SSE 주석 (keep-alive) 무시
-          if (line.startsWith(":")) continue;
+          if (line.startsWith(":")) continue;         // SSE 주석(keep-alive) 무시
           if (!line.startsWith("data: ")) continue;
           const raw = line.slice(6).trim();
           if (raw === "[DONE]") break;
           try {
             const parsed = JSON.parse(raw);
-            // ping 무시
             if (parsed.ping) continue;
             if (parsed.text) {
               accumulated += parsed.text;
-              setRawText(accumulated);
-              // 실시간으로 [PLAN] 블록은 숨기고 표시
-              const { clean } = extractPlan(accumulated);
-              setText(clean);
+              setText(accumulated);
             }
           } catch {}
         }
@@ -113,22 +127,22 @@ export function useAiStream(): UseAiStreamResult {
         setError(e.message || "AI 응답을 가져오지 못했습니다");
       }
     } finally {
-      // 스트리밍 완료 후 JSON 파싱
-      const { clean, days } = extractPlan(accumulated);
-      setText(clean);
-      setParsedDays(days);
+      // 스트리밍 완료 후 텍스트 파싱
+      if (accumulated) {
+        const days = parseDaysFromText(accumulated);
+        setParsedDays(days);
+      }
       setLoading(false);
     }
   }, []);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
-    setRawText("");
     setText("");
     setParsedDays([]);
     setError("");
     setLoading(false);
   }, []);
 
-  return { text, rawText, parsedDays, loading, error, stream, reset };
+  return { text, parsedDays, loading, error, stream, reset };
 }
