@@ -3,13 +3,16 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import get_settings
 
 settings = get_settings()
+_db_url = settings.get_async_db_url()
+
+# asyncpg는 pool_size/max_overflow 미지원 → PG여부에 따라 분기
+_is_pg = _db_url.startswith("postgresql")
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    _db_url,
     echo=settings.DEBUG,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    **({} if _is_pg else {"pool_size": 10, "max_overflow": 20}),
 )
 
 AsyncSessionLocal = async_sessionmaker(

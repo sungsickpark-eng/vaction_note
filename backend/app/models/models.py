@@ -39,7 +39,7 @@ class Trip(Base):
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     visibility = Column(
-        SAEnum("private", "link", "public", name="visibility_enum"),
+        SAEnum("private", "link", "public", name="visibility_enum", native_enum=False),
         default="private",
         nullable=False,
     )
@@ -79,7 +79,7 @@ class Waypoint(Base):
     visit_date = Column(Date, nullable=True)
     arrival_time = Column(Time, nullable=True)
     transport_mode = Column(
-        SAEnum("walk", "car", "transit", name="transport_enum"),
+        SAEnum("walk", "car", "transit", name="transport_enum", native_enum=False),
         default="car",
         nullable=True,
     )

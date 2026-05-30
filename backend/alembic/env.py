@@ -3,29 +3,30 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 config = context.config
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import all models so Alembic can detect them
 from app.core.database import Base
 from app.models.models import User, Trip, TripDay, Waypoint, Memo, Photo  # noqa
 
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url from .env if available
-import os
-from dotenv import load_dotenv
-load_dotenv()
 
-sync_url = os.getenv("DATABASE_URL_SYNC")
-if sync_url:
-    config.set_main_option("sqlalchemy.url", sync_url)
+def get_url():
+    from app.core.config import get_settings
+    s = get_settings()
+    return s.get_sync_db_url() or config.get_main_option("sqlalchemy.url")
 
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -43,11 +44,17 @@ def do_run_migrations(connection):
 
 
 async def run_migrations_online() -> None:
+    from app.core.config import get_settings
+    s = get_settings()
+    async_url = s.get_async_db_url() or config.get_main_option("sqlalchemy.url")
+
+    cfg = config.get_section(config.config_ini_section, {})
+    cfg["sqlalchemy.url"] = async_url
+
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        cfg,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        url=os.getenv("DATABASE_URL"),
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

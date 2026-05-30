@@ -1,7 +1,11 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
 sqlalchemy[asyncio]==2.0.36
+# async drivers (PostgreSQL for Render, MySQL for local)
+asyncpg==0.30.0
 aiomysql==0.2.0
+# sync drivers (for Alembic)
+psycopg2-binary==2.9.10
 pymysql==1.1.1
 alembic==1.14.0
 pydantic[email]==2.10.3
