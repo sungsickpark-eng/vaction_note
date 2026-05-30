@@ -11,6 +11,7 @@ import { format, differenceInDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useAiStream } from "@/hooks/useAiStream";
 import dynamic from "next/dynamic";
+import { createTripFromAiPlan, CreateTripProgress } from "@/lib/createTripFromAiPlan";
 
 const AiPlanMapModal = dynamic(
   () => import("@/components/ai/AiPlanMapModal"),
@@ -133,6 +134,7 @@ function TripPlannerForm() {
   const { text, parsedDays, loading, error, stream, reset } = useAiStream();
   const resultRef = useRef<HTMLDivElement>(null);
   const [creating, setCreating] = useState(false);
+  const [createProgress, setCreateProgress] = useState<CreateTripProgress | null>(null);
   const [mapModalOpen, setMapModalOpen] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
@@ -166,63 +168,28 @@ function TripPlannerForm() {
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   };
 
-  // AI 일정을 반영해서 여행 생성 → 일별 메모 자동 추가
+  // AI 일정 반영해서 여행 생성 (메모 + 경유지 자동 추가)
   const handleCreateTrip = async () => {
+    if (!form.destination) return;
     setCreating(true);
+    setCreateProgress({ stage: "trip" });
     try {
-      const token = localStorage.getItem("access_token");
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003";
-      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-
-      // 1. 여행 생성
-      const tripRes = await fetch(`${API}/api/trips`, {
-        method: "POST", headers,
-        body: JSON.stringify({
+      const tripId = await createTripFromAiPlan(
+        {
+          destination: form.destination,
+          startDate: form.start_date || undefined,
+          endDate: form.end_date || undefined,
+          parsedDays,
           title: `${form.destination} 여행 (AI 추천)`,
-          region: form.destination,
-          start_date: form.start_date || undefined,
-          end_date: form.end_date || undefined,
-          visibility: "private",
-        }),
-      });
-      const trip = await tripRes.json();
-      if (!trip.id) throw new Error("여행 생성 실패");
-
-      // 2. 일별 메모 자동 추가 (parsedDays가 있을 때)
-      if (parsedDays.length > 0 && form.start_date) {
-        const startDate = new Date(form.start_date);
-
-        for (const day of parsedDays) {
-          // 해당 날짜의 TripDay 찾기 (인덱스 기반)
-          const dayDate = new Date(startDate);
-          dayDate.setDate(startDate.getDate() + (day.day - 1));
-          const dateStr = dayDate.toISOString().split("T")[0];
-
-          // 해당 날짜의 trip day ID 가져오기
-          const daysRes = await fetch(`${API}/api/trips/${trip.id}/days`, { headers });
-          const days = await daysRes.json();
-          const tripDay = days.find((d: { date: string; id: string }) => d.date === dateStr);
-
-          // 활동 내용을 메모로 추가
-          const content = `📅 Day ${day.day} — ${day.title}\n\n` +
-            day.activities.map((a: string) => `• ${a}`).join("\n");
-
-          await fetch(`${API}/api/trips/${trip.id}/memos`, {
-            method: "POST", headers,
-            body: JSON.stringify({
-              content,
-              trip_day_id: tripDay?.id || undefined,
-            }),
-          });
-        }
-      }
-
-      router.push(`/trips/${trip.id}/plan`);
-    } catch (e) {
-      console.error(e);
+        },
+        setCreateProgress
+      );
+      router.push(`/trips/${tripId}/plan`);
+    } catch {
       alert("여행 생성 중 오류가 발생했습니다");
     } finally {
       setCreating(false);
+      setCreateProgress(null);
     }
   };
 
@@ -421,10 +388,17 @@ function TripPlannerForm() {
                   <button
                     onClick={handleCreateTrip}
                     disabled={creating}
-                    className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1.5"
+                    className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1"
                   >
                     {creating ? (
-                      <><span className="animate-spin">⏳</span> 생성 중...</>
+                      <>
+                        <span className="animate-spin">⏳</span>
+                        <span className="text-xs">
+                          {createProgress?.stage === "trip" && "여행 생성..."}
+                          {createProgress?.stage === "memo" && `Day ${createProgress.day} 저장...`}
+                          {createProgress?.stage === "waypoint" && `Day ${createProgress.day} 장소 연결...`}
+                        </span>
+                      </>
                     ) : (
                       <>🗓️ 여행 만들기</>
                     )}

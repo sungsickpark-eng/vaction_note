@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { differenceInDays } from "date-fns";
-import { useAiStream, AiDay } from "@/hooks/useAiStream";
+import { useAiStream } from "@/hooks/useAiStream";
 import dynamic from "next/dynamic";
+import { createTripFromAiPlan, CreateTripProgress } from "@/lib/createTripFromAiPlan";
 
 const AiPlanMapModal = dynamic(
   () => import("@/components/ai/AiPlanMapModal"),
@@ -81,6 +82,7 @@ export default function RecommendPage() {
   const { text, parsedDays, loading: planLoading, error: planError, stream, reset: resetStream } = useAiStream();
   const planResultRef = useRef<HTMLDivElement>(null);
   const [creating, setCreating] = useState(false);
+  const [createProgress, setCreateProgress] = useState<CreateTripProgress | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
 
   // 기간 자동 계산
@@ -139,46 +141,24 @@ export default function RecommendPage() {
   const handleCreateTrip = async () => {
     if (!destination) return;
     setCreating(true);
+    setCreateProgress({ stage: "trip" });
     try {
-      const token = localStorage.getItem("access_token");
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003";
-      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-
-      const tripRes = await fetch(`${API}/api/trips`, {
-        method: "POST", headers,
-        body: JSON.stringify({
+      const tripId = await createTripFromAiPlan(
+        {
+          destination: destination.name,
+          startDate: planForm.start_date || undefined,
+          endDate: planForm.end_date || undefined,
+          parsedDays,
           title: `${destination.name} 여행 (AI 추천)`,
-          region: destination.name,
-          start_date: planForm.start_date || undefined,
-          end_date: planForm.end_date || undefined,
-          visibility: "private",
-        }),
-      });
-      const trip = await tripRes.json();
-      if (!trip.id) throw new Error("여행 생성 실패");
-
-      if (parsedDays.length > 0 && planForm.start_date) {
-        const startDate = new Date(planForm.start_date);
-        for (const day of parsedDays) {
-          const dayDate = new Date(startDate);
-          dayDate.setDate(startDate.getDate() + (day.day - 1));
-          const dateStr = dayDate.toISOString().split("T")[0];
-          const daysRes = await fetch(`${API}/api/trips/${trip.id}/days`, { headers });
-          const days = await daysRes.json();
-          const tripDay = days.find((d: { date: string }) => d.date === dateStr);
-          const content = `📅 Day ${day.day} — ${day.title}\n\n` +
-            day.activities.map((a: string) => `• ${a}`).join("\n");
-          await fetch(`${API}/api/trips/${trip.id}/memos`, {
-            method: "POST", headers,
-            body: JSON.stringify({ content, trip_day_id: tripDay?.id || undefined }),
-          });
-        }
-      }
-      router.push(`/trips/${trip.id}/plan`);
+        },
+        setCreateProgress
+      );
+      router.push(`/trips/${tripId}/plan`);
     } catch {
       alert("여행 생성 중 오류가 발생했습니다");
     } finally {
       setCreating(false);
+      setCreateProgress(null);
     }
   };
 
@@ -446,9 +426,18 @@ export default function RecommendPage() {
                     <button
                       onClick={handleCreateTrip}
                       disabled={creating}
-                      className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm"
+                      className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1"
                     >
-                      {creating ? <span className="animate-spin">⏳</span> : "🗓️ 여행 만들기"}
+                      {creating ? (
+                        <>
+                          <span className="animate-spin text-base">⏳</span>
+                          <span className="text-xs">
+                            {createProgress?.stage === "trip" && "여행 생성 중..."}
+                            {createProgress?.stage === "memo" && `Day ${createProgress.day} 메모 저장...`}
+                            {createProgress?.stage === "waypoint" && `Day ${createProgress.day} 장소 연결...`}
+                          </span>
+                        </>
+                      ) : "🗓️ 여행 만들기"}
                     </button>
                     <button
                       onClick={handleGeneratePlan}
