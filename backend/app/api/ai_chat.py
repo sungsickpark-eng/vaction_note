@@ -52,6 +52,15 @@ class ChatRequest(BaseModel):
     context: Optional[str] = None   # 현재 여행/미션 맥락
 
 
+class TripPlanRequest(BaseModel):
+    destination: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    duration: str = "2박3일"
+    people: int = 2
+    budget_per_day: int = 100000   # 1인당 하루 예산 (원)
+
+
 # ─── 공통 스트리밍 유틸 ───────────────────────────────────────────────────────
 
 async def _stream_openai(system: str, user: str, max_tokens: int = 400) -> AsyncIterator[str]:
@@ -181,6 +190,39 @@ async def chat_stream(
 
     async def generator():
         async for chunk in _stream_openai(system, body.message, max_tokens=400):
+            yield chunk
+
+    return StreamingResponse(generator(), media_type="text/event-stream",
+                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/trip-plan/stream")
+async def trip_plan_stream(
+    body: TripPlanRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """여행지·기간·인원·예산 기반 맞춤 여행 계획 — SSE 스트리밍."""
+    budget_total = body.budget_per_day * body.people
+    date_str = (
+        f"{body.start_date} ~ {body.end_date}" if body.start_date and body.end_date
+        else body.duration
+    )
+
+    system = "당신은 한국 국내 여행 전문 플래너입니다. 한국어로 실용적이고 체계적으로 답하세요."
+    user = (
+        f"여행지: **{body.destination}**\n"
+        f"기간: {date_str} ({body.duration})\n"
+        f"인원: {body.people}명\n"
+        f"1인당 하루 예산: {body.budget_per_day:,}원 (총 일일 예산: {budget_total:,}원)\n\n"
+        f"위 조건에 딱 맞는 여행 계획을 만들어주세요. 아래 형식으로:\n\n"
+        f"**📍 여행 개요** (2문장)\n\n"
+        f"**💰 예산 배분** (교통·숙박·식비·활동비 각각 금액)\n\n"
+        f"**📅 일별 상세 일정** (각 Day마다 오전·오후·저녁 활동)\n\n"
+        f"**💡 절약 팁** (예산 내 즐기는 핵심 팁 2가지)"
+    )
+
+    async def generator():
+        async for chunk in _stream_openai(system, user, max_tokens=600):
             yield chunk
 
     return StreamingResponse(generator(), media_type="text/event-stream",
