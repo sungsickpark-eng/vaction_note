@@ -125,7 +125,8 @@ export default function TripDetailPage() {
                   </div>
                   <DayItinerary
                     day={day}
-                    dayMemo={memos.find((m) => m.trip_day_id === day.id)}
+                    dayIdx={idx}
+                    memos={memos}
                     onPlanClick={() => router.push(`/trips/${id}/plan`)}
                   />
                 </div>
@@ -195,15 +196,32 @@ function parseAiActivities(content: string): string[] {
     .filter((l) => l.length > 2);
 }
 
+/** 메모에서 해당 Day 활동 찾기 (trip_day_id 또는 내용의 'Day N' 패턴으로 폴백) */
+function findDayMemo(memos: Memo[], dayId: string, dayIdx: number): Memo | undefined {
+  // 1차: trip_day_id 정확히 매칭
+  const byId = memos.find((m) => m.trip_day_id === dayId);
+  if (byId) return byId;
+
+  // 2차: 메모 내용이 '📅 Day N' 형식인 것 중 인덱스 매칭 (날짜 시간대 버그 등으로 id 매칭 실패 시 폴백)
+  const dayNum = dayIdx + 1;
+  return memos.find((m) =>
+    m.content.includes(`📅 Day ${dayNum}`) ||
+    m.content.match(new RegExp(`^📅\\s*Day\\s+${dayNum}[\\s—–-]`, "m"))
+  );
+}
+
 function DayItinerary({
   day,
-  dayMemo,
+  dayIdx,
+  memos,
   onPlanClick,
 }: {
   day: { id: string; waypoints: Waypoint[] };
-  dayMemo?: Memo;
+  dayIdx: number;
+  memos: Memo[];
   onPlanClick: () => void;
 }) {
+  const dayMemo = findDayMemo(memos, day.id, dayIdx);
   const aiActivities = dayMemo ? parseAiActivities(dayMemo.content) : [];
   const hasWaypoints = day.waypoints.length > 0;
   const hasAi = aiActivities.length > 0;

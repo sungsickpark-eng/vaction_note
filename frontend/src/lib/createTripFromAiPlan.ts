@@ -77,14 +77,17 @@ export async function createTripFromAiPlan(
   const daysRes = await fetch(`${API}/api/trips/${trip.id}/days`, { headers });
   const tripDays: { id: string; date: string }[] = await daysRes.json();
 
-  const startDateObj = new Date(startDate);
+  // 시간대 문제 없이 날짜 계산 (YYYY-MM-DD 문자열 직접 조작)
+  function addDays(dateStr: string, days: number): string {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const date = new Date(y, m - 1, d + days);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
   const totalDays = parsedDays.length;
 
   for (const day of parsedDays) {
-    // 날짜 매핑
-    const dayDate = new Date(startDateObj);
-    dayDate.setDate(startDateObj.getDate() + (day.day - 1));
-    const dateStr = dayDate.toISOString().split("T")[0];
+    const dateStr = addDays(startDate, day.day - 1);
     const tripDay = tripDays.find((d) => d.date === dateStr);
     if (!tripDay) continue;
 
