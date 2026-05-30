@@ -223,16 +223,17 @@ function TripPlannerForm() {
           {/* Row 2: 이동 수단 */}
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-2">🚗 이동 수단</label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {[
-                { val: "자가용", emoji: "🚗", desc: "드라이브 코스 포함" },
-                { val: "대중교통", emoji: "🚌", desc: "버스·지하철·기차" },
-                { val: "도보", emoji: "🚶", desc: "걸어서 근거리" },
+                { val: "자가용", emoji: "🚗", desc: "드라이브" },
+                { val: "렌트카", emoji: "🚙", desc: "현지 렌트" },
+                { val: "대중교통", emoji: "🚌", desc: "기차·버스" },
+                { val: "도보", emoji: "🚶", desc: "걸어서" },
               ].map(({ val, emoji, desc }) => (
                 <button
                   key={val}
                   onClick={() => setForm((f) => ({ ...f, transport: val }))}
-                  className={`flex-1 py-2.5 rounded-xl border transition flex flex-col items-center gap-0.5 ${
+                  className={`py-2.5 rounded-xl border transition flex flex-col items-center gap-0.5 ${
                     form.transport === val
                       ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                       : "border-gray-200 bg-white text-gray-500 hover:border-indigo-300"
@@ -328,29 +329,9 @@ function TripPlannerForm() {
 
             {!loading && text && (
               <div className="space-y-3 mt-3">
-                {/* 대중교통 예약 링크 */}
-                {form.transport === "대중교통" && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-                    <p className="text-xs font-bold text-blue-700 mb-2">🚌 대중교통 예약 바로가기</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {[
-                        { label: "🚆 KTX·기차", url: "https://www.letskorail.com", color: "bg-red-500" },
-                        { label: "🚄 SRT", url: "https://etk.srail.kr", color: "bg-blue-600" },
-                        { label: "🚌 고속버스", url: "https://www.kobus.co.kr", color: "bg-green-600" },
-                        { label: "✈️ 항공권", url: "https://flight.naver.com", color: "bg-sky-500" },
-                      ].map(({ label, url, color }) => (
-                        <a
-                          key={url}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`${color} text-white text-xs font-bold py-2 px-2 rounded-lg text-center hover:opacity-90 transition`}
-                        >
-                          {label}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
+                {/* 교통 예약 링크 */}
+                {(form.transport === "대중교통" || form.transport === "렌트카") && (
+                  <BookingLinks transport={form.transport} />
                 )}
 
                 {/* 버튼 */}
@@ -374,6 +355,60 @@ function TripPlannerForm() {
         )}
       </div>
     </section>
+  );
+}
+
+// ─── 예약 링크 컴포넌트 ───────────────────────────────────────────────────────
+
+const TRANSPORT_LINKS = [
+  { label: "🚆 KTX·기차", url: "https://www.letskorail.com", bg: "bg-red-500", transports: ["대중교통"] },
+  { label: "🚄 SRT", url: "https://etk.srail.kr", bg: "bg-blue-600", transports: ["대중교통"] },
+  { label: "🚌 고속버스", url: "https://www.kobus.co.kr", bg: "bg-green-600", transports: ["대중교통"] },
+  { label: "✈️ 항공권", url: "https://flight.naver.com", bg: "bg-sky-500", transports: ["대중교통", "렌트카"] },
+  { label: "🚙 쏘카", url: "https://www.socar.kr", bg: "bg-teal-500", transports: ["렌트카"] },
+  { label: "🚙 롯데렌터카", url: "https://www.lotterentacar.net", bg: "bg-red-600", transports: ["렌트카"] },
+];
+
+const HOTEL_LINKS = [
+  { label: "🏨 야놀자", url: "https://www.yanolja.com", bg: "bg-pink-500" },
+  { label: "🏩 여기어때", url: "https://www.goodchoice.kr", bg: "bg-purple-500" },
+  { label: "🏠 에어비앤비", url: "https://www.airbnb.co.kr", bg: "bg-rose-500" },
+  { label: "🌐 부킹닷컴", url: "https://www.booking.com", bg: "bg-blue-700" },
+  { label: "🏷️ 호텔스닷컴", url: "https://www.hotels.com", bg: "bg-red-700" },
+  { label: "🗺️ 트립닷컴", url: "https://www.trip.com/ko", bg: "bg-cyan-600" },
+];
+
+function BookingLinks({ transport }: { transport: string }) {
+  const filteredTransport = TRANSPORT_LINKS.filter((l) => l.transports.includes(transport));
+  return (
+    <div className="space-y-3">
+      {filteredTransport.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+          <p className="text-xs font-bold text-blue-700 mb-2">
+            {transport === "렌트카" ? "🚙 렌트카·항공 예약" : "🚌 교통편 예약 바로가기"}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {filteredTransport.map(({ label, url, bg }) => (
+              <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                className={`${bg} text-white text-xs font-bold py-2 px-2 rounded-lg text-center hover:opacity-90 transition`}>
+                {label}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+        <p className="text-xs font-bold text-amber-700 mb-2">🏨 숙박 예약 바로가기</p>
+        <div className="grid grid-cols-3 gap-2">
+          {HOTEL_LINKS.map(({ label, url, bg }) => (
+            <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+              className={`${bg} text-white text-xs font-bold py-2 px-1 rounded-lg text-center hover:opacity-90 transition`}>
+              {label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

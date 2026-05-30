@@ -18,7 +18,7 @@ export default function TripPlanPage() {
   const qc = useQueryClient();
 
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"plan" | "memo">("plan");
+  const [activeTab, setActiveTab] = useState<"plan" | "memo" | "book">("plan");
 
   const { data: trip, isLoading } = useQuery({
     queryKey: ["trip", id],
@@ -118,6 +118,16 @@ export default function TripPlanPage() {
           >
             📝 메모
           </button>
+          <button
+            onClick={() => setActiveTab("book")}
+            className={`px-3 py-1.5 text-sm rounded-lg transition ${
+              activeTab === "book"
+                ? "bg-emerald-600 text-white"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            🔗 예약
+          </button>
         </div>
       </header>
 
@@ -185,8 +195,10 @@ export default function TripPlanPage() {
                 )}
               </div>
             </>
-          ) : (
+          ) : activeTab === "memo" ? (
             <MemoPanel tripId={id} memos={memos} days={typedTrip.days} />
+          ) : (
+            <BookingPanel region={typedTrip.region} />
           )}
         </aside>
 
@@ -237,5 +249,141 @@ function WaypointItem({
         ✕
       </button>
     </li>
+  );
+}
+
+// ─── 예약 패널 ────────────────────────────────────────────────────────────────
+
+const TRANSPORT_SECTIONS = [
+  {
+    title: "✈️ 항공권",
+    links: [
+      { label: "네이버항공", url: "https://flight.naver.com", bg: "bg-green-600" },
+      { label: "스카이스캐너", url: "https://www.skyscanner.co.kr", bg: "bg-sky-500" },
+      { label: "트립닷컴", url: "https://www.trip.com/ko", bg: "bg-cyan-600" },
+    ],
+  },
+  {
+    title: "🚆 기차",
+    links: [
+      { label: "코레일 KTX", url: "https://www.letskorail.com", bg: "bg-red-500" },
+      { label: "SRT", url: "https://etk.srail.kr", bg: "bg-blue-600" },
+    ],
+  },
+  {
+    title: "🚌 버스",
+    links: [
+      { label: "고속버스 코버스", url: "https://www.kobus.co.kr", bg: "bg-green-700" },
+      { label: "시외버스", url: "https://www.busterminal.or.kr", bg: "bg-emerald-600" },
+    ],
+  },
+  {
+    title: "🚙 렌트카",
+    links: [
+      { label: "쏘카", url: "https://www.socar.kr", bg: "bg-teal-500" },
+      { label: "그린카", url: "https://www.greencar.co.kr", bg: "bg-green-500" },
+      { label: "롯데렌터카", url: "https://www.lotterentacar.net", bg: "bg-red-600" },
+      { label: "SK렌터카", url: "https://www.skcar.co.kr", bg: "bg-orange-500" },
+    ],
+  },
+];
+
+const HOTEL_SECTIONS = [
+  {
+    title: "🏨 국내 숙박",
+    links: [
+      { label: "야놀자", url: "https://www.yanolja.com", bg: "bg-pink-500" },
+      { label: "여기어때", url: "https://www.goodchoice.kr", bg: "bg-purple-500" },
+      { label: "데일리호텔", url: "https://www.dailyhotel.com", bg: "bg-indigo-500" },
+    ],
+  },
+  {
+    title: "🌐 글로벌 예약",
+    links: [
+      { label: "에어비앤비", url: "https://www.airbnb.co.kr", bg: "bg-rose-500" },
+      { label: "부킹닷컴", url: "https://www.booking.com", bg: "bg-blue-700" },
+      { label: "호텔스닷컴", url: "https://www.hotels.com", bg: "bg-red-700" },
+      { label: "아고다", url: "https://www.agoda.com/ko-kr", bg: "bg-red-500" },
+    ],
+  },
+  {
+    title: "🏕️ 캠핑·독채",
+    links: [
+      { label: "캠핑닷컴", url: "https://www.camping.co.kr", bg: "bg-lime-600" },
+      { label: "글램핑", url: "https://www.glamping.co.kr", bg: "bg-amber-600" },
+    ],
+  },
+];
+
+function BookingPanel({ region }: { region?: string }) {
+  const encodedRegion = encodeURIComponent(region || "");
+
+  return (
+    <div className="flex-1 overflow-y-auto p-3 space-y-5">
+      {region && (
+        <p className="text-xs text-center text-gray-400 bg-gray-50 rounded-lg py-1.5">
+          📍 {region} 여행 예약 링크
+        </p>
+      )}
+
+      {/* 교통편 */}
+      <div>
+        <h3 className="text-xs font-black text-gray-500 uppercase tracking-wide mb-2">교통편 예약</h3>
+        <div className="space-y-3">
+          {TRANSPORT_SECTIONS.map((sec) => (
+            <div key={sec.title}>
+              <p className="text-xs font-bold text-gray-600 mb-1.5">{sec.title}</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {sec.links.map(({ label, url, bg }) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${bg} text-white text-xs font-bold py-2 px-2 rounded-lg text-center hover:opacity-90 transition`}
+                  >
+                    {label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t" />
+
+      {/* 숙박 */}
+      <div>
+        <h3 className="text-xs font-black text-gray-500 uppercase tracking-wide mb-2">숙박 예약</h3>
+        <div className="space-y-3">
+          {HOTEL_SECTIONS.map((sec) => (
+            <div key={sec.title}>
+              <p className="text-xs font-bold text-gray-600 mb-1.5">{sec.title}</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {sec.links.map(({ label, url, bg }) => {
+                  // 지역명이 있으면 야놀자·여기어때 검색 URL에 반영
+                  let finalUrl = url;
+                  if (region && url.includes("yanolja.com")) finalUrl = `${url}/search?keyword=${encodedRegion}`;
+                  if (region && url.includes("goodchoice.kr")) finalUrl = `${url}/hotels?keyword=${encodedRegion}`;
+
+                  return (
+                    <a
+                      key={url}
+                      href={finalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${bg} text-white text-xs font-bold py-2 px-2 rounded-lg text-center hover:opacity-90 transition`}
+                    >
+                      {label}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
