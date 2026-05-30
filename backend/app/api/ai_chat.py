@@ -59,6 +59,7 @@ class TripPlanRequest(BaseModel):
     duration: str = "2박3일"
     people: int = 2
     budget_per_day: int = 100000   # 1인당 하루 예산 (원)
+    transport: str = "자가용"       # 자가용 | 대중교통 | 도보
 
 
 # ─── 공통 스트리밍 유틸 ───────────────────────────────────────────────────────
@@ -208,16 +209,24 @@ async def trip_plan_stream(
         else body.duration
     )
 
+    transport_guide = {
+        "자가용": "자가용 이용 (주차 및 드라이브 코스 포함)",
+        "대중교통": "대중교통만 이용 (버스·지하철·기차·택시 경로 포함)",
+        "도보": "도보 중심 (걸어서 이동 가능한 반경 내 일정, 이동 거리·시간 명시)",
+    }.get(body.transport, body.transport)
+
     system = "당신은 한국 국내 여행 전문 플래너입니다. 한국어로 실용적이고 체계적으로 답하세요."
     user = (
         f"여행지: **{body.destination}**\n"
         f"기간: {date_str} ({body.duration})\n"
         f"인원: {body.people}명\n"
+        f"이동 수단: **{transport_guide}**\n"
         f"1인당 하루 예산: {body.budget_per_day:,}원 (총 일일 예산: {budget_total:,}원)\n\n"
         f"위 조건에 딱 맞는 여행 계획을 만들어주세요. 아래 형식으로:\n\n"
         f"**📍 여행 개요** (2문장)\n\n"
+        f"**🚗 이동 방법** ({body.transport} 기준 주요 이동 경로 및 팁)\n\n"
         f"**💰 예산 배분** (교통·숙박·식비·활동비 각각 금액)\n\n"
-        f"**📅 일별 상세 일정** (각 Day마다 오전·오후·저녁 활동)\n\n"
+        f"**📅 일별 상세 일정** (각 Day마다 오전·오후·저녁 활동, {body.transport} 이동 동선 포함)\n\n"
         f"**💡 절약 팁** (예산 내 즐기는 핵심 팁 2가지)"
     )
 

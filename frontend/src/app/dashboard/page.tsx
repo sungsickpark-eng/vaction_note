@@ -134,6 +134,7 @@ function TripPlannerForm() {
     end_date: "",
     people: 2,
     budget_per_day: 100000,
+    transport: "자가용",
   });
   const [submitted, setSubmitted] = useState(false);
 
@@ -182,45 +183,71 @@ function TripPlannerForm() {
 
       <div className="p-6">
         {/* 입력 폼 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-          {/* 여행지 */}
-          <div className="lg:col-span-1">
-            <label className="block text-xs font-bold text-gray-500 mb-1">📍 여행지</label>
-            <input
-              value={form.destination}
-              onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value }))}
-              placeholder="예: 제주도, 부산, 강릉..."
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-
-          {/* 여행 일정 */}
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">🗓️ 여행 일정</label>
-            <div className="flex items-center gap-1">
+        <div className="space-y-4 mb-4">
+          {/* Row 1: 여행지 + 일정 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">📍 여행지</label>
               <input
-                type="date"
-                value={form.start_date}
-                min={today}
-                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
-                className="flex-1 border border-gray-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              />
-              <span className="text-gray-400 text-xs shrink-0">~</span>
-              <input
-                type="date"
-                value={form.end_date}
-                min={form.start_date || today}
-                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
-                className="flex-1 border border-gray-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                value={form.destination}
+                onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value }))}
+                placeholder="예: 제주도, 부산, 강릉..."
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />
             </div>
-            {duration && (
-              <p className="text-xs text-indigo-500 mt-1 font-medium">📌 {duration}</p>
-            )}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">🗓️ 여행 일정</label>
+              <div className="flex items-center gap-1">
+                <input
+                  type="date"
+                  value={form.start_date}
+                  min={today}
+                  onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
+                  className="flex-1 border border-gray-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <span className="text-gray-400 text-xs shrink-0">~</span>
+                <input
+                  type="date"
+                  value={form.end_date}
+                  min={form.start_date || today}
+                  onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
+                  className="flex-1 border border-gray-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </div>
+              {duration && (
+                <p className="text-xs text-indigo-500 mt-1 font-medium">📌 {duration}</p>
+              )}
+            </div>
           </div>
 
-          {/* 인원 + 예산 */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Row 2: 이동 수단 */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-2">🚗 이동 수단</label>
+            <div className="flex gap-2">
+              {[
+                { val: "자가용", emoji: "🚗", desc: "드라이브 코스 포함" },
+                { val: "대중교통", emoji: "🚌", desc: "버스·지하철·기차" },
+                { val: "도보", emoji: "🚶", desc: "걸어서 근거리" },
+              ].map(({ val, emoji, desc }) => (
+                <button
+                  key={val}
+                  onClick={() => setForm((f) => ({ ...f, transport: val }))}
+                  className={`flex-1 py-2.5 rounded-xl border transition flex flex-col items-center gap-0.5 ${
+                    form.transport === val
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                      : "border-gray-200 bg-white text-gray-500 hover:border-indigo-300"
+                  }`}
+                >
+                  <span className="text-xl">{emoji}</span>
+                  <span className="text-xs font-bold">{val}</span>
+                  <span className="text-xs text-gray-400 hidden sm:block">{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Row 3: 인원 + 예산 */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">👥 인원</label>
               <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
