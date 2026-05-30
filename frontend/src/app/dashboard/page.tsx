@@ -101,6 +101,19 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        {/* AI 어시스턴트 배너 */}
+        <Link
+          href="/ai-travel"
+          className="flex items-center gap-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl p-5 mb-6 hover:opacity-90 transition shadow-lg"
+        >
+          <span className="text-4xl shrink-0">🤖</span>
+          <div>
+            <p className="font-bold text-lg">AI 여행 어시스턴트</p>
+            <p className="text-emerald-100 text-sm">ChatGPT로 여행지·미션 추천 + 뭐든 질문</p>
+          </div>
+          <span className="ml-auto text-2xl">→</span>
+        </Link>
+
         {isLoading ? (
           <div className="text-center py-20 text-gray-400">불러오는 중...</div>
         ) : trips.length === 0 ? (

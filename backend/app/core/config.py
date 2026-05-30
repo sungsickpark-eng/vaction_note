@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:8003/api/auth/google/callback"
 
     KAKAO_REST_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
 
     REDIS_URL: str = ""
 
