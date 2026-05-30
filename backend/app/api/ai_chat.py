@@ -65,6 +65,8 @@ class TripPlanRequest(BaseModel):
 # ─── 공통 스트리밍 유틸 ───────────────────────────────────────────────────────
 
 async def _stream_openai(system: str, user: str, max_tokens: int = 400) -> AsyncIterator[str]:
+    import asyncio
+
     client = _get_client()
     stream = await client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -73,10 +75,34 @@ async def _stream_openai(system: str, user: str, max_tokens: int = 400) -> Async
         temperature=0.8,
         stream=True,
     )
-    async for chunk in stream:
-        content = chunk.choices[0].delta.content
-        if content:
-            yield f"data: {json.dumps({'text': content})}\n\n"
+
+    # queue로 스트림 청크를 받고, 20초 무응답 시 keep-alive SSE 주석 전송
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def _fill():
+        try:
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    await queue.put(f"data: {json.dumps({'text': content})}\n\n")
+        finally:
+            await queue.put(None)
+
+    task = asyncio.create_task(_fill())
+
+    try:
+        while True:
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=20)
+            except asyncio.TimeoutError:
+                yield ": keep-alive\n\n"   # SSE 주석 — 브라우저가 무시, 연결 유지
+                continue
+            if item is None:
+                break
+            yield item
+    finally:
+        task.cancel()
+
     yield "data: [DONE]\n\n"
 
 
@@ -228,7 +254,9 @@ async def trip_plan_stream(
         f"**🚗 이동 방법** ({body.transport} 기준 주요 이동 경로 및 팁)\n\n"
         f"**💰 예산 배분** (교통·숙박·식비·활동비 각각 금액)\n\n"
         f"**📅 일별 상세 일정** (각 Day마다 오전·오후·저녁 활동, {body.transport} 이동 동선 포함)\n\n"
-        f"**💡 절약 팁** (예산 내 즐기는 핵심 팁 2가지)"
+        f"**💡 절약 팁** (예산 내 즐기는 핵심 팁 2가지)\n\n"
+        f"마지막 줄에 아래 JSON을 출력하세요 (반드시 한 줄, 마크다운 없이):\n"
+        f"[PLAN]{{\"days\":[{{\"day\":1,\"title\":\"Day 제목\",\"activities\":[\"오전: 활동\",\"오후: 활동\",\"저녁: 활동\"]}}]}}[/PLAN]"
     )
 
     async def generator():

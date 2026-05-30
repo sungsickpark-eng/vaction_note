@@ -124,8 +124,9 @@ export default function DashboardPage() {
 
 function TripPlannerForm() {
   const router = useRouter();
-  const { text, loading, error, stream, reset } = useAiStream();
+  const { text, parsedDays, loading, error, stream, reset } = useAiStream();
   const resultRef = useRef<HTMLDivElement>(null);
+  const [creating, setCreating] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState({
@@ -154,21 +155,68 @@ function TripPlannerForm() {
       ...form,
       duration: duration || "2박3일",
     });
-    // 결과 영역으로 스크롤
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   };
 
-  const handleCreateTrip = () => {
-    const params = new URLSearchParams();
-    if (form.destination) params.set("region", form.destination);
-    if (form.start_date) params.set("start_date", form.start_date);
-    if (form.end_date) params.set("end_date", form.end_date);
-    router.push(`/trips/new?${params.toString()}`);
-  };
+  // AI 일정을 반영해서 여행 생성 → 일별 메모 자동 추가
+  const handleCreateTrip = async () => {
+    setCreating(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003";
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-  // 여행지명 파싱
-  const destMatch = text.match(/\*\*📍[^*]*\*\*/) || text.match(/여행지:\s*\*\*([^*]+)\*\*/);
-  const parsedDest = form.destination;
+      // 1. 여행 생성
+      const tripRes = await fetch(`${API}/api/trips`, {
+        method: "POST", headers,
+        body: JSON.stringify({
+          title: `${form.destination} 여행 (AI 추천)`,
+          region: form.destination,
+          start_date: form.start_date || undefined,
+          end_date: form.end_date || undefined,
+          visibility: "private",
+        }),
+      });
+      const trip = await tripRes.json();
+      if (!trip.id) throw new Error("여행 생성 실패");
+
+      // 2. 일별 메모 자동 추가 (parsedDays가 있을 때)
+      if (parsedDays.length > 0 && form.start_date) {
+        const startDate = new Date(form.start_date);
+
+        for (const day of parsedDays) {
+          // 해당 날짜의 TripDay 찾기 (인덱스 기반)
+          const dayDate = new Date(startDate);
+          dayDate.setDate(startDate.getDate() + (day.day - 1));
+          const dateStr = dayDate.toISOString().split("T")[0];
+
+          // 해당 날짜의 trip day ID 가져오기
+          const daysRes = await fetch(`${API}/api/trips/${trip.id}/days`, { headers });
+          const days = await daysRes.json();
+          const tripDay = days.find((d: { date: string; id: string }) => d.date === dateStr);
+
+          // 활동 내용을 메모로 추가
+          const content = `📅 Day ${day.day} — ${day.title}\n\n` +
+            day.activities.map((a: string) => `• ${a}`).join("\n");
+
+          await fetch(`${API}/api/trips/${trip.id}/memos`, {
+            method: "POST", headers,
+            body: JSON.stringify({
+              content,
+              trip_day_id: tripDay?.id || undefined,
+            }),
+          });
+        }
+      }
+
+      router.push(`/trips/${trip.id}/plan`);
+    } catch (e) {
+      console.error(e);
+      alert("여행 생성 중 오류가 발생했습니다");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <section className="bg-white rounded-2xl shadow-md overflow-hidden">
@@ -338,9 +386,14 @@ function TripPlannerForm() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleCreateTrip}
-                    className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition text-sm"
+                    disabled={creating}
+                    className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1.5"
                   >
-                    🗓️ 이 계획으로 여행 만들기
+                    {creating ? (
+                      <><span className="animate-spin">⏳</span> 여행 생성 중...</>
+                    ) : (
+                      <>🗓️ 이 계획으로 여행 만들기{parsedDays.length > 0 && ` (${parsedDays.length}일 일정 포함)`}</>
+                    )}
                   </button>
                   <button
                     onClick={handleSubmit}
