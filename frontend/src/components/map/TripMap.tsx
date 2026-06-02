@@ -30,6 +30,7 @@ export default function TripMap({ waypoints, center, onAddPlace }: Props) {
   const searchMarkersRef = useRef<any[]>([]);
   const searchOverlaysRef = useRef<any[]>([]);
   const waypointOverlaysRef = useRef<any[]>([]);
+  const prevWpCountRef = useRef(0);  // 경유지 수 변화 감지용
 
   const [kakaoReady, setKakaoReady] = useState(false);
   const [query, setQuery] = useState("");
@@ -74,7 +75,7 @@ export default function TripMap({ waypoints, center, onAddPlace }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kakaoReady]);
 
-  // ── 경유지 변경 시 재렌더 ─────────────────────────────────────────────────
+  // ── 경유지 변경 시 재렌더 + 지도 자동 이동 ───────────────────────────────
   useEffect(() => {
     if (!kakaoReady || !mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -85,6 +86,37 @@ export default function TripMap({ waypoints, center, onAddPlace }: Props) {
 
     const validWps = waypoints.filter((wp) => wp.lat != null && wp.lng != null);
     drawWaypoints(map, validWps);
+
+    if (validWps.length === 0) {
+      prevWpCountRef.current = 0;
+      return;
+    }
+
+    const prev = prevWpCountRef.current;
+    prevWpCountRef.current = validWps.length;
+
+    if (validWps.length === 1) {
+      // 경유지 1개: 해당 위치로 부드럽게 이동
+      map.panTo(new window.kakao.maps.LatLng(validWps[0].lat!, validWps[0].lng!));
+      map.setLevel(5);
+    } else if (validWps.length > prev) {
+      // 새 경유지 추가됨: 추가된 경유지로 먼저 pan → 잠시 후 전체 bounds 맞춤
+      const newest = validWps[validWps.length - 1];
+      map.panTo(new window.kakao.maps.LatLng(newest.lat!, newest.lng!));
+
+      // 0.6초 뒤 전체 경유지 범위로 맞춤 (사용자가 새 마커 위치를 인식한 후)
+      setTimeout(() => {
+        if (!mapInstanceRef.current) return;
+        const bounds = new window.kakao.maps.LatLngBounds();
+        validWps.forEach((wp) => bounds.extend(new window.kakao.maps.LatLng(wp.lat!, wp.lng!)));
+        mapInstanceRef.current.setBounds(bounds, 80);
+      }, 600);
+    } else {
+      // 경유지 삭제 또는 초기 렌더: 전체 범위 맞춤
+      const bounds = new window.kakao.maps.LatLngBounds();
+      validWps.forEach((wp) => bounds.extend(new window.kakao.maps.LatLng(wp.lat!, wp.lng!)));
+      map.setBounds(bounds, 80);
+    }
   }, [kakaoReady, waypoints]);
 
   // ── 경유지 마커 그리기 ────────────────────────────────────────────────────
