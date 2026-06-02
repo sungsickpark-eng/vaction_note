@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tripsApi, waypointsApi, mapsApi } from "@/lib/api";
@@ -21,6 +21,13 @@ function parseActivities(content: string): string[] {
     .filter((l) => l.trim().startsWith("•"))
     .map((l) => l.replace(/^[•\s]+/, "").trim())
     .filter((l) => l.length > 4);
+}
+
+/** 이동/귀가 등 장소가 없는 활동인지 판단 */
+function isTransitActivity(activity: string): boolean {
+  const cleaned = activity.replace(/^(오전|오후|저녁|낮|밤)\s*[:：]\s*/i, "").trim();
+  return /에서.+로\s*(이동|출발|이동$)/.test(cleaned) ||
+    /^(귀가|귀환|출발|이동|체크아웃|비행기\s*탑승|버스\s*탑승|기차\s*탑승)/.test(cleaned);
 }
 
 function extractSearchQuery(activity: string, region: string): string {
@@ -53,23 +60,22 @@ function AiSuggestionsPanel({
   onAddPlace: (place: { place_id: string; name: string; address: string; lat: number; lng: number }) => void;
 }) {
   const dayMemo = memos.find((m) => m.trip_day_id === dayId);
-  const activities = dayMemo ? parseActivities(dayMemo.content) : [];
+  // 이동/귀가 활동은 제외하고 장소가 있는 활동만 필터링
+  const activities = dayMemo
+    ? parseActivities(dayMemo.content).filter((a) => !isTransitActivity(a))
+    : [];
 
-  const [suggestions, setSuggestions] = useState<AiSuggestion[]>(() =>
-    activities.map((a) => ({ activity: a, status: "idle" }))
-  );
+  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
 
-  // activities 변경 시 리셋
-  const activitiesKey = activities.join("|");
-  const [prevKey, setPrevKey] = useState(activitiesKey);
-  if (prevKey !== activitiesKey) {
-    setPrevKey(activitiesKey);
-    setSuggestions(activities.map((a) => ({ activity: a, status: "idle" })));
-  }
+  // dayId나 activities 변경 시 suggestions 초기화 (useEffect로 안전하게 처리)
+  useEffect(() => {
+    setSuggestions(activities.map((a) => ({ activity: a, status: "idle" as const })));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayId, dayMemo?.id]);
 
   const handleAdd = useCallback(async (idx: number) => {
     const sug = suggestions[idx];
-    if (sug.status === "loading" || sug.status === "added") return;
+    if (!sug || sug.status === "loading" || sug.status === "added") return;
 
     setSuggestions((prev) => prev.map((s, i) => i === idx ? { ...s, status: "loading" } : s));
 
@@ -87,7 +93,16 @@ function AiSuggestionsPanel({
         });
         setSuggestions((prev) => prev.map((s, i) => i === idx ? { ...s, status: "added" } : s));
       } else {
-        setSuggestions((prev) => prev.map((s, i) => i === idx ? { ...s, status: "fail" } : s));
+        // 검색 결과 없음 → 장소명 + 지역 단순화해서 재시도
+        const simpleQuery = extractSearchQuery(sug.activity, region || "").split(" ").slice(0, 2).join(" ");
+        const res2 = await mapsApi.search(simpleQuery);
+        const hit2 = res2.data.results?.[0];
+        if (hit2) {
+          onAddPlace({ place_id: hit2.place_id, name: hit2.name, address: hit2.address, lat: hit2.lat, lng: hit2.lng });
+          setSuggestions((prev) => prev.map((s, i) => i === idx ? { ...s, status: "added" } : s));
+        } else {
+          setSuggestions((prev) => prev.map((s, i) => i === idx ? { ...s, status: "fail" } : s));
+        }
       }
     } catch {
       setSuggestions((prev) => prev.map((s, i) => i === idx ? { ...s, status: "fail" } : s));
@@ -133,7 +148,10 @@ function AiSuggestionsPanel({
                   : "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
               }`}
             >
-              {sug.status === "loading" ? "⏳" : sug.status === "added" ? "✓" : sug.status === "fail" ? "재시도" : "＋ 추가"}
+              {sug.status === "loading" ? "⏳"
+                : sug.status === "added" ? "✓ 추가됨"
+                : sug.status === "fail" ? "🔍 재시도"
+                : "＋ 추가"}
             </button>
           </div>
         ))}
