@@ -193,6 +193,7 @@ export default function DashboardPage() {
 
 function TripPlannerForm() {
   const router = useRouter();
+  const { user } = useAuthStore();  // 로그인 상태 확인
   const { text, parsedDays, loading, error, stream, reset } = useAiStream();
   const resultRef = useRef<HTMLDivElement>(null);
   const [creating, setCreating] = useState(false);
@@ -447,24 +448,33 @@ function TripPlannerForm() {
                   >
                     🗺️ 지도로 일정 확인
                   </button>
-                  <button
-                    onClick={handleCreateTrip}
-                    disabled={creating}
-                    className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1"
-                  >
-                    {creating ? (
-                      <>
-                        <span className="animate-spin">⏳</span>
-                        <span className="text-xs">
-                          {createProgress?.stage === "trip" && "여행 생성..."}
-                          {createProgress?.stage === "memo" && `Day ${createProgress.day} 저장...`}
-                          {createProgress?.stage === "waypoint" && `Day ${createProgress.day} 장소 연결...`}
-                        </span>
-                      </>
-                    ) : (
-                      <>🗓️ 여행 만들기</>
-                    )}
-                  </button>
+                  {user ? (
+                    <button
+                      onClick={handleCreateTrip}
+                      disabled={creating}
+                      className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1"
+                    >
+                      {creating ? (
+                        <>
+                          <span className="animate-spin">⏳</span>
+                          <span className="text-xs">
+                            {createProgress?.stage === "trip" && "여행 생성..."}
+                            {createProgress?.stage === "memo" && `Day ${createProgress.day} 저장...`}
+                            {createProgress?.stage === "waypoint" && `Day ${createProgress.day} 장소 연결...`}
+                          </span>
+                        </>
+                      ) : (
+                        <>🗓️ 여행 만들기</>
+                      )}
+                    </button>
+                  ) : (
+                    <Link
+                      href="/login"
+                      className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition text-sm flex items-center justify-center gap-1"
+                    >
+                      🔐 로그인 후 여행 만들기
+                    </Link>
+                  )}
                   <button
                     onClick={handleSubmit}
                     className="py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition text-sm font-medium"

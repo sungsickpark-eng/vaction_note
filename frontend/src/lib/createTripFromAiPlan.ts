@@ -54,6 +54,13 @@ export async function createTripFromAiPlan(
   onProgress?: (p: CreateTripProgress) => void
 ): Promise<string> {
   const token = localStorage.getItem("access_token");
+
+  // 로그인 필요: 토큰 없으면 로그인 페이지로
+  if (!token) {
+    window.location.href = "/login";
+    throw new Error("로그인이 필요합니다. 로그인 후 다시 시도해주세요.");
+  }
+
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
   // 날짜 미입력 시 오늘부터 parsedDays 일수 만큼 자동 설정

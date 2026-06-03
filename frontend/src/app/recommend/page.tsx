@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/stores/authStore";
 import { differenceInDays } from "date-fns";
 import { useAiStream } from "@/hooks/useAiStream";
 import dynamic from "next/dynamic";
@@ -52,6 +53,7 @@ type Destination = {
 
 export default function RecommendPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const today = new Date().toISOString().split("T")[0];
 
   // MBTI 선택
@@ -423,22 +425,31 @@ export default function RecommendPage() {
                     >
                       🗺️ 지도로 확인
                     </button>
-                    <button
-                      onClick={handleCreateTrip}
-                      disabled={creating}
-                      className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1"
-                    >
-                      {creating ? (
-                        <>
-                          <span className="animate-spin text-base">⏳</span>
-                          <span className="text-xs">
-                            {createProgress?.stage === "trip" && "여행 생성 중..."}
-                            {createProgress?.stage === "memo" && `Day ${createProgress.day} 메모 저장...`}
-                            {createProgress?.stage === "waypoint" && `Day ${createProgress.day} 장소 연결...`}
-                          </span>
-                        </>
-                      ) : "🗓️ 여행 만들기"}
-                    </button>
+                    {user ? (
+                      <button
+                        onClick={handleCreateTrip}
+                        disabled={creating}
+                        className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-1"
+                      >
+                        {creating ? (
+                          <>
+                            <span className="animate-spin text-base">⏳</span>
+                            <span className="text-xs">
+                              {createProgress?.stage === "trip" && "여행 생성 중..."}
+                              {createProgress?.stage === "memo" && `Day ${createProgress.day} 메모 저장...`}
+                              {createProgress?.stage === "waypoint" && `Day ${createProgress.day} 장소 연결...`}
+                            </span>
+                          </>
+                        ) : "🗓️ 여행 만들기"}
+                      </button>
+                    ) : (
+                      <Link
+                        href="/login"
+                        className="py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition text-sm flex items-center justify-center"
+                      >
+                        🔐 로그인 후 여행 만들기
+                      </Link>
+                    )}
                     <button
                       onClick={handleGeneratePlan}
                       className="py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition text-sm font-medium"

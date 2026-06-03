@@ -5,11 +5,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { tripsApi } from "@/lib/api";
+import { useAuthStore } from "@/stores/authStore";
 
 function NewTripForm() {
   const router = useRouter();
   const params = useSearchParams();
   const qc = useQueryClient();
+  const { user, isLoading } = useAuthStore();
+
+  // 비로그인 → 로그인 페이지로
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, isLoading, router]);
 
   const [form, setForm] = useState({
     title: "",
