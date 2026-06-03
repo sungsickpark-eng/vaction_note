@@ -305,6 +305,6 @@ async def trip_plan_stream(
 
 
 @router.get("/status")
-async def ai_status(current_user: User = Depends(get_current_user)):
+async def ai_status(current_user: Optional[User] = Depends(get_optional_user)):
     """OpenAI API 키 설정 여부 확인."""
     return {"available": bool(settings.OPENAI_API_KEY)}
