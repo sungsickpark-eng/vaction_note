@@ -166,7 +166,13 @@ export default function TripPlanPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
 
-  const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  // URL 쿼리 파라미터에서 dayId 읽기 (여행 상세 카드 클릭 시 전달)
+  const searchParams = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search)
+    : null;
+  const urlDayId = searchParams?.get("dayId") ?? null;
+
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(urlDayId);
   const [activeTab, setActiveTab] = useState<"plan" | "memo" | "book">("plan");
 
   const { data: trip, isLoading } = useQuery({
@@ -174,7 +180,8 @@ export default function TripPlanPage() {
     queryFn: () =>
       tripsApi.get(id).then((r) => {
         const data = r.data as TripDetail;
-        setSelectedDayId((prev) => prev ?? data.days[0]?.id ?? null);
+        // URL dayId가 있으면 우선 적용, 없으면 첫 번째 날짜
+        setSelectedDayId((prev) => prev ?? urlDayId ?? data.days[0]?.id ?? null);
         return data;
       }),
   });
