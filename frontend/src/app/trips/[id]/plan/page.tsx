@@ -3,8 +3,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { tripsApi, waypointsApi, mapsApi } from "@/lib/api";
+import { tripsApi, waypointsApi, mapsApi, api } from "@/lib/api";
 import { TripDetail, Waypoint, Memo } from "@/types";
+import PremiumGate from "@/components/premium/PremiumGate";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import Link from "next/link";
@@ -175,6 +176,15 @@ export default function TripPlanPage() {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(urlDayId);
   const [activeTab, setActiveTab] = useState<"plan" | "memo" | "book">("plan");
 
+  // 프리미엄 상태 조회
+  const { data: premiumData, refetch: refetchPremium } = useQuery({
+    queryKey: ["premium", id],
+    queryFn: () => api.get(`/api/trips/${id}/premium`).then((r) => r.data as { is_premium: boolean }),
+    enabled: !!id,
+    retry: false,
+  });
+  const isPremium = premiumData?.is_premium ?? false;
+
   const { data: trip, isLoading } = useQuery({
     queryKey: ["trip", id],
     queryFn: () =>
@@ -251,7 +261,9 @@ export default function TripPlanPage() {
                   : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              {tab === "plan" ? "📅 일정" : tab === "memo" ? "📝 메모" : "🔗 예약"}
+              {tab === "plan" ? "📅 일정"
+                : tab === "memo" ? <span>📝 메모{!isPremium && " 🔐"}</span>
+                : "🔗 예약"}
             </button>
           ))}
         </div>
@@ -325,7 +337,11 @@ export default function TripPlanPage() {
               </div>
             </>
           ) : activeTab === "memo" ? (
-            <MemoPanel tripId={id} memos={memos} days={typedTrip.days} />
+            isPremium ? (
+              <MemoPanel tripId={id} memos={memos} days={typedTrip.days} />
+            ) : (
+              <PremiumGate tripId={id} onActivated={() => refetchPremium()} />
+            )
           ) : (
             <BookingPanel region={typedTrip.region} />
           )}

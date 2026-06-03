@@ -25,6 +25,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     trips = relationship("Trip", back_populates="user", cascade="all, delete-orphan")
+    premiums = relationship("TripPremium", back_populates="user", cascade="all, delete-orphan")
 
 
 class Trip(Base):
@@ -50,6 +51,7 @@ class Trip(Base):
     days = relationship("TripDay", back_populates="trip", cascade="all, delete-orphan", order_by="TripDay.date")
     memos = relationship("Memo", back_populates="trip", cascade="all, delete-orphan")
     photos = relationship("Photo", back_populates="trip", cascade="all, delete-orphan")
+    premium = relationship("TripPremium", back_populates="trip", uselist=False)
 
 
 class TripDay(Base):
@@ -127,3 +129,18 @@ class Photo(Base):
     trip = relationship("Trip", back_populates="photos")
     waypoint = relationship("Waypoint", back_populates="photos")
     memo = relationship("Memo", back_populates="photos")
+
+
+class TripPremium(Base):
+    """여행당 유료 기능 활성화 (메모·사진)"""
+    __tablename__ = "trip_premiums"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    trip_id = Column(String(36), ForeignKey("trips.id", ondelete="CASCADE"), nullable=False, unique=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    amount = Column(Integer, nullable=False, default=1000)
+    payment_key = Column(String(200), nullable=True)   # 실제 결제 키 (PG 연동 시)
+    paid_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    trip = relationship("Trip", back_populates="premium")
+    user = relationship("User", back_populates="premiums")

@@ -27,9 +27,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  useEffect(() => {
-    if (!authLoading && !user) router.push("/login");
-  }, [user, authLoading, router]);
+  // 비로그인: 로그인 페이지로 보내지 않고 대시보드 내에서 안내
 
   const { data, isLoading } = useQuery({
     queryKey: ["trips"],
@@ -42,7 +40,7 @@ export default function DashboardPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["trips"] }),
   });
 
-  if (authLoading || !user) return null;
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center text-gray-400">불러오는 중...</div>;
 
   const trips = data ?? [];
   const now = new Date();
@@ -57,10 +55,22 @@ export default function DashboardPage() {
           <span className="text-xl">🗺️</span>
           <span className="font-bold text-indigo-700">여행 일지 다이어리</span>
         </Link>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">{user.name}님</span>
-          <button onClick={() => { logout(); router.push("/"); }}
-            className="text-sm text-gray-500 hover:text-gray-800">로그아웃</button>
+        <div className="flex items-center gap-3">
+          {user ? (
+            <>
+              <span className="text-sm text-gray-600 hidden sm:block">{user.name}님</span>
+              <button onClick={() => { logout(); router.push("/"); }}
+                className="text-sm text-gray-500 hover:text-gray-800">로그아웃</button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm text-gray-600 hover:text-indigo-600">로그인</Link>
+              <Link href="/login?tab=register"
+                className="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium">
+                회원가입
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
@@ -73,10 +83,17 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-800">내 여행 목록</h2>
-            <Link href="/trips/new"
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
-              + 새 여행 만들기
-            </Link>
+            {user ? (
+              <Link href="/trips/new"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+                + 새 여행 만들기
+              </Link>
+            ) : (
+              <Link href="/login"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+                🔐 로그인하고 시작하기
+              </Link>
+            )}
           </div>
 
           {/* 배너 */}
@@ -100,7 +117,44 @@ export default function DashboardPage() {
         </div>
 
         {/* ── 3. 진행 중 / 예정 여행 ── */}
-        {isLoading ? (
+        {!user ? (
+          /* 비로그인: 로그인 유도 배너 */
+          <div className="bg-white rounded-2xl shadow p-10 text-center">
+            <span className="text-5xl block mb-4">🗺️</span>
+            <h3 className="text-xl font-black text-gray-800 mb-2">여행을 기록하고 싶다면?</h3>
+            <p className="text-gray-500 mb-6 text-sm leading-relaxed">
+              로그인하면 여행 계획을 만들고 저장할 수 있어요.<br />
+              MBTI 추천, 미션 여행, AI 계획은 지금 바로 사용해보세요!
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Link href="/login?tab=register"
+                className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">
+                무료 회원가입
+              </Link>
+              <Link href="/login"
+                className="px-6 py-3 border border-indigo-300 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition">
+                로그인
+              </Link>
+            </div>
+            <div className="mt-6 grid grid-cols-3 gap-3 text-xs text-gray-500">
+              <div className="bg-gray-50 rounded-xl p-3">
+                <span className="text-2xl block mb-1">📅</span>
+                <p className="font-bold">여행 계획</p>
+                <p className="text-indigo-500">무료 (로그인)</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <span className="text-2xl block mb-1">📝</span>
+                <p className="font-bold">메모·사진</p>
+                <p className="text-amber-500">1,000원/여행</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <span className="text-2xl block mb-1">🧭</span>
+                <p className="font-bold">AI 추천</p>
+                <p className="text-green-500">무료</p>
+              </div>
+            </div>
+          </div>
+        ) : isLoading ? (
           <div className="text-center py-16 text-gray-400">불러오는 중...</div>
         ) : trips.length === 0 ? (
           <EmptyState />

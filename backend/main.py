@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.core.config import get_settings
-from app.api import auth, trips, waypoints, memos, photos, maps, recommend, ai_chat
+from app.api import auth, trips, waypoints, memos, photos, maps, recommend, ai_chat, premium
 
 settings = get_settings()
 
@@ -36,6 +36,7 @@ app.include_router(photos.router)
 app.include_router(maps.router)
 app.include_router(recommend.router)
 app.include_router(ai_chat.router)
+app.include_router(premium.router)
 
 
 @app.get("/health")
