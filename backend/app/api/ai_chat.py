@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from openai import AsyncOpenAI
 
 from app.core.config import get_settings
-from app.core.security import get_current_user
+from app.core.security import get_optional_user
 from app.models.models import User
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -124,7 +124,7 @@ async def _call_openai(system: str, user: str, max_tokens: int = 400) -> str:
 @router.post("/recommend/stream")
 async def recommend_stream(
     body: RecommendRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     """MBTI 기반 여행지 추천 — SSE 스트리밍."""
     is_P = "P" in body.mbti.upper()
@@ -168,7 +168,7 @@ async def recommend_stream(
 @router.post("/mission-tip/stream")
 async def mission_tip_stream(
     body: MissionTipRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     """미션별 AI 조언 — SSE 스트리밍."""
     system = "당신은 도전적인 여행 미션 전문가입니다. 한국어로 실용적이고 흥미롭게 답하세요."
@@ -189,7 +189,7 @@ async def mission_tip_stream(
 
 @router.post("/mission/random-stream")
 async def random_mission_stream(
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     """AI가 독창적인 미션을 즉석에서 생성 — SSE 스트리밍."""
     import random
@@ -219,7 +219,7 @@ async def random_mission_stream(
 @router.post("/chat/stream")
 async def chat_stream(
     body: ChatRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     """자유 여행 Q&A 채팅 — SSE 스트리밍."""
     context_part = f"\n현재 맥락: {body.context}" if body.context else ""
@@ -240,7 +240,7 @@ async def chat_stream(
 @router.post("/trip-plan/stream")
 async def trip_plan_stream(
     body: TripPlanRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     """여행지·기간·인원·예산 기반 맞춤 여행 계획 — SSE 스트리밍."""
     budget_total = body.budget_per_day * body.people
