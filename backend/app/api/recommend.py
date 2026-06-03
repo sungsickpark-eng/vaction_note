@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 import random
 
-from app.core.security import get_current_user
+from typing import Optional
+from app.core.security import get_optional_user
 from app.models.models import User
 
 router = APIRouter(prefix="/api/recommend", tags=["recommend"])
@@ -422,7 +423,7 @@ async def list_themes():
 @router.post("/spontaneous")
 async def spontaneous(
     body: SpontaneousRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     pool = _get_pool(body.mbti)
     available = [d for d in pool if d["id"] not in body.exclude_ids]
@@ -447,7 +448,7 @@ async def spontaneous(
 @router.post("/plan")
 async def plan(
     body: PlanRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     pool = _get_pool(body.mbti)
     preferred_tags = THEME_TAGS.get(body.theme, [])

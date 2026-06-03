@@ -3,7 +3,7 @@ from typing import Optional
 import httpx
 
 from app.core.config import get_settings
-from app.core.security import get_current_user
+from app.core.security import get_optional_user
 from app.models.models import User
 
 router = APIRouter(prefix="/api/maps", tags=["maps"])
@@ -20,7 +20,7 @@ def _kakao_headers() -> dict:
 @router.get("/search")
 async def search_places(
     q: str = Query(..., description="장소 검색어"),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     if not settings.KAKAO_REST_API_KEY or settings.KAKAO_REST_API_KEY == "your-kakao-rest-api-key":
         return {"results": [], "message": "카카오 REST API 키를 설정해주세요"}
@@ -50,7 +50,7 @@ async def search_places(
 async def reverse_geocode(
     lat: float = Query(...),
     lng: float = Query(...),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     if not settings.KAKAO_REST_API_KEY or settings.KAKAO_REST_API_KEY == "your-kakao-rest-api-key":
         return {"address": f"{lat}, {lng}", "message": "카카오 REST API 키를 설정해주세요"}

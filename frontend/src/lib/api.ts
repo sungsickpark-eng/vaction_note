@@ -21,6 +21,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       const refresh = localStorage.getItem("refresh_token");
       if (refresh) {
+        // 기존 로그인 세션 갱신 시도
         try {
           const res = await axios.post(`${BASE_URL}/api/auth/refresh`, {
             refresh_token: refresh,
@@ -30,11 +31,14 @@ api.interceptors.response.use(
           err.config.headers.Authorization = `Bearer ${res.data.access_token}`;
           return api(err.config);
         } catch {
+          // 갱신 실패 → 로그인 페이지로
           localStorage.removeItem("access_token");
           localStorage.removeItem("refresh_token");
           window.location.href = "/login";
         }
       }
+      // refresh token 없음 = 비로그인 상태
+      // → 리다이렉트하지 않고 그냥 에러 반환 (컴포넌트가 처리)
     }
     return Promise.reject(err);
   }

@@ -11,6 +11,7 @@ from app.core.database import get_db
 
 settings = get_settings()
 bearer_scheme = HTTPBearer()
+optional_bearer = HTTPBearer(auto_error=False)  # 선택적 인증용
 
 
 def hash_password(password: str) -> str:
@@ -46,6 +47,25 @@ def decode_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="유효하지 않은 토큰입니다",
         )
+
+
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer),
+    db: AsyncSession = Depends(get_db),
+):
+    """토큰이 없으면 None 반환 (공개 API용)."""
+    from app.models.models import User
+    if not credentials:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if not user_id:
+            return None
+        result = await db.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
+    except Exception:
+        return None
 
 
 async def get_current_user(
