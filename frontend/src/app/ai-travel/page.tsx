@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAiStream } from "@/hooks/useAiStream";
+import { createTripFromAiPlan, CreateTripProgress } from "@/lib/createTripFromAiPlan";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -69,150 +70,226 @@ export default function AiTravelPage() {
 
 // ─── 여행지 추천 탭 ───────────────────────────────────────────────────────────
 
+type RecommendStep = "form" | "recommended" | "planning" | "creating" | "done";
+
+const COMPANION_PEOPLE: Record<string, number> = { "혼자": 1, "커플": 2, "친구들": 4, "가족": 4 };
+
 function RecommendTab() {
   const router = useRouter();
-  const { text, loading, error, stream, reset } = useAiStream();
-  const [form, setForm] = useState({
-    mbti: "ENFP",
-    duration: "2박3일",
-    companion: "커플",
-    theme: "자연",
-  });
-  const [submitted, setSubmitted] = useState(false);
+  const { text: recText, loading: recLoading, error: recError, stream: recStream, reset: recReset } = useAiStream();
+  const { text: planText, parsedDays, loading: planLoading, error: planError, stream: planStream } = useAiStream();
 
-  const handleSubmit = async () => {
-    setSubmitted(true);
-    await stream("/api/ai/recommend/stream", form);
+  const [step, setStep] = useState<RecommendStep>("form");
+  const [form, setForm] = useState({ mbti: "ENFP", duration: "2박3일", companion: "커플", theme: "자연" });
+  const [progress, setProgress] = useState<CreateTripProgress | null>(null);
+  const [createdTripId, setCreatedTripId] = useState<string>("");
+  const [createError, setCreateError] = useState<string>("");
+
+  const destination = recText.match(/📍\s*\*\*([^\*]+)\*\*/)?.[1]?.split("—")[0]?.trim();
+
+  const handleRecommend = async () => {
+    recReset();
+    setStep("recommended");
+    await recStream("/api/ai/recommend/stream", form);
   };
 
-  // 여행지명 파싱 (굵은 텍스트에서 추출)
-  const destinationMatch = text.match(/📍\s*\*\*([^\*]+)\*\*/);
-  const destination = destinationMatch?.[1]?.split("—")[0]?.trim();
+  const handleMakeTrip = async () => {
+    if (!destination) return;
+    setStep("planning");
+    await planStream("/api/ai/trip-plan/stream", {
+      destination,
+      duration: form.duration,
+      people: COMPANION_PEOPLE[form.companion] ?? 2,
+      transport: "대중교통",
+      budget_per_day: 100000,
+    });
+  };
 
-  return (
-    <div className="space-y-5">
-      {!submitted ? (
-        <>
-          <div className="bg-white rounded-2xl shadow p-6 space-y-5">
-            <h2 className="font-bold text-gray-800 text-lg">나의 정보를 알려주세요</h2>
+  const handleCreate = async () => {
+    if (!destination) return;
+    setStep("creating");
+    setCreateError("");
+    try {
+      const tripId = await createTripFromAiPlan(
+        { destination, parsedDays, title: `${destination} ${form.duration} 여행` },
+        (p) => setProgress(p)
+      );
+      setCreatedTripId(tripId);
+      setStep("done");
+    } catch (e: unknown) {
+      setCreateError(e instanceof Error ? e.message : "여행 생성에 실패했습니다");
+      setStep("planning");
+    }
+  };
 
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">MBTI</label>
-              <div className="grid grid-cols-4 gap-2">
-                {MBTI_LIST.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setForm((f) => ({ ...f, mbti: m }))}
-                    className={`py-1.5 text-sm rounded-lg font-medium transition ${
-                      form.mbti === m
-                        ? "bg-indigo-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <OptionGroup
-              label="여행 기간"
-              options={["당일", "1박2일", "2박3일", "4일이상"]}
-              value={form.duration}
-              onChange={(v) => setForm((f) => ({ ...f, duration: v }))}
-            />
-            <OptionGroup
-              label="동행자"
-              options={["혼자", "커플", "친구들", "가족"]}
-              value={form.companion}
-              onChange={(v) => setForm((f) => ({ ...f, companion: v }))}
-            />
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">🎯 여행 테마</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { val: "자연", emoji: "🌿" },
-                  { val: "문화역사", emoji: "🏛️" },
-                  { val: "맛집", emoji: "🍽️" },
-                  { val: "액티비티", emoji: "⚡" },
-                  { val: "야경", emoji: "🌃" },
-                  { val: "힐링/스파", emoji: "💆" },
-                  { val: "드라이브", emoji: "🚗" },
-                  { val: "캠핑", emoji: "⛺" },
-                  { val: "감성/사진", emoji: "📷" },
-                  { val: "쇼핑", emoji: "🛍️" },
-                  { val: "축제/이벤트", emoji: "🎪" },
-                  { val: "공연/문화", emoji: "🎭" },
-                ].map(({ val, emoji }) => (
-                  <button
-                    key={val}
-                    onClick={() => setForm((f) => ({ ...f, theme: val }))}
-                    className={`py-2 px-1 rounded-xl text-xs font-medium transition flex items-center gap-1 justify-center ${
-                      form.theme === val
-                        ? "bg-indigo-600 text-white shadow"
-                        : "bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
-                    }`}
-                  >
-                    <span>{emoji}</span><span>{val}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSubmit}
-            className="w-full py-4 bg-indigo-600 text-white font-bold text-lg rounded-2xl hover:bg-indigo-700 transition shadow-lg"
-          >
-            🤖 AI에게 여행지 추천받기
-          </button>
-        </>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-500">
-              {form.mbti} · {form.duration} · {form.companion} · {form.theme}
-            </div>
-            <button onClick={() => { reset(); setSubmitted(false); }}
-              className="text-sm text-indigo-500 hover:underline">다시 설정</button>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow p-6 min-h-[200px]">
-            {loading && !text && (
-              <div className="flex items-center gap-3 text-gray-400">
-                <span className="text-2xl animate-spin">🤖</span>
-                <span>AI가 여행지를 고르는 중...</span>
-              </div>
-            )}
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            {text && (
-              <div className="prose prose-sm max-w-none">
-                <AiMarkdown text={text} />
-                {loading && <span className="inline-block w-2 h-4 bg-indigo-400 animate-pulse ml-0.5 align-middle" />}
-              </div>
-            )}
-          </div>
-
-          {text && !loading && (
-            <div className="flex gap-3">
-              {destination && (
-                <button
-                  onClick={() => router.push(`/trips/new?region=${encodeURIComponent(destination)}`)}
-                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition"
-                >
-                  🗓️ {destination} 여행 만들기
+  // ── form ──
+  if (step === "form") {
+    return (
+      <div className="space-y-5">
+        <div className="bg-white rounded-2xl shadow p-6 space-y-5">
+          <h2 className="font-bold text-gray-800 text-lg">나의 정보를 알려주세요</h2>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">MBTI</label>
+            <div className="grid grid-cols-4 gap-2">
+              {MBTI_LIST.map((m) => (
+                <button key={m} onClick={() => setForm((f) => ({ ...f, mbti: m }))}
+                  className={`py-1.5 text-sm rounded-lg font-medium transition ${form.mbti === m ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                  {m}
                 </button>
-              )}
-              <button
-                onClick={handleSubmit}
-                className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition"
-              >
-                🔄 다른 곳 추천
-              </button>
+              ))}
+            </div>
+          </div>
+          <OptionGroup label="여행 기간" options={["당일", "1박2일", "2박3일", "4일이상"]}
+            value={form.duration} onChange={(v) => setForm((f) => ({ ...f, duration: v }))} />
+          <OptionGroup label="동행자" options={["혼자", "커플", "친구들", "가족"]}
+            value={form.companion} onChange={(v) => setForm((f) => ({ ...f, companion: v }))} />
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">🎯 여행 테마</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { val: "자연", emoji: "🌿" }, { val: "문화역사", emoji: "🏛️" }, { val: "맛집", emoji: "🍽️" },
+                { val: "액티비티", emoji: "⚡" }, { val: "야경", emoji: "🌃" }, { val: "힐링/스파", emoji: "💆" },
+                { val: "드라이브", emoji: "🚗" }, { val: "캠핑", emoji: "⛺" }, { val: "감성/사진", emoji: "📷" },
+                { val: "쇼핑", emoji: "🛍️" }, { val: "축제/이벤트", emoji: "🎪" }, { val: "공연/문화", emoji: "🎭" },
+              ].map(({ val, emoji }) => (
+                <button key={val} onClick={() => setForm((f) => ({ ...f, theme: val }))}
+                  className={`py-2 px-1 rounded-xl text-xs font-medium transition flex items-center gap-1 justify-center ${form.theme === val ? "bg-indigo-600 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"}`}>
+                  <span>{emoji}</span><span>{val}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <button onClick={handleRecommend}
+          className="w-full py-4 bg-indigo-600 text-white font-bold text-lg rounded-2xl hover:bg-indigo-700 transition shadow-lg">
+          🤖 AI에게 여행지 추천받기
+        </button>
+      </div>
+    );
+  }
+
+  // ── recommended ──
+  if (step === "recommended") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-500">{form.mbti} · {form.duration} · {form.companion} · {form.theme}</span>
+          <button onClick={() => { recReset(); setStep("form"); }} className="text-sm text-indigo-500 hover:underline">다시 설정</button>
+        </div>
+        <div className="bg-white rounded-2xl shadow p-6 min-h-[200px]">
+          {recLoading && !recText && (
+            <div className="flex items-center gap-3 text-gray-400">
+              <span className="text-2xl animate-spin">🤖</span>
+              <span>AI가 여행지를 고르는 중...</span>
+            </div>
+          )}
+          {recError && <p className="text-red-500 text-sm">{recError}</p>}
+          {recText && (
+            <div className="prose prose-sm max-w-none">
+              <AiMarkdown text={recText} />
+              {recLoading && <span className="inline-block w-2 h-4 bg-indigo-400 animate-pulse ml-0.5 align-middle" />}
             </div>
           )}
         </div>
-      )}
+        {recText && !recLoading && (
+          <div className="flex gap-3">
+            {destination && (
+              <button onClick={handleMakeTrip}
+                className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">
+                🗓️ {destination} 여행 계획 세우기
+              </button>
+            )}
+            <button onClick={handleRecommend}
+              className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition">
+              🔄 다른 곳 추천
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── planning ──
+  if (step === "planning") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          {planLoading
+            ? <><span className="text-xl animate-spin">🤖</span><span className="font-bold text-gray-700">{destination} 일정 생성 중...</span></>
+            : <><span className="text-xl">📋</span><span className="font-bold text-gray-700">{destination} 여행 계획</span></>
+          }
+        </div>
+        <div className="bg-white rounded-2xl shadow p-5 max-h-[420px] overflow-y-auto text-sm">
+          {planLoading && !planText && (
+            <div className="flex items-center gap-3 text-gray-400 py-4">
+              <span>AI가 일별 계획을 작성하는 중...</span>
+            </div>
+          )}
+          {planError && <p className="text-red-500 text-sm">{planError}</p>}
+          {planText && (
+            <div className="prose prose-sm max-w-none">
+              <AiMarkdown text={planText} />
+              {planLoading && <span className="inline-block w-2 h-4 bg-indigo-400 animate-pulse ml-0.5 align-middle" />}
+            </div>
+          )}
+        </div>
+        {createError && <p className="text-red-500 text-sm text-center">{createError}</p>}
+        {planText && !planLoading && (
+          <div className="flex gap-3">
+            <button onClick={handleCreate}
+              className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow">
+              ✅ 이 계획으로 여행 만들기
+            </button>
+            <button onClick={() => setStep("recommended")}
+              className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition">
+              ← 다시 선택
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── creating ──
+  if (step === "creating") {
+    return (
+      <div className="bg-white rounded-2xl shadow p-10 text-center space-y-5">
+        <span className="text-5xl animate-bounce block">✈️</span>
+        <h2 className="font-bold text-gray-800 text-lg">여행을 만들고 있어요</h2>
+        {progress && (
+          <div className="space-y-1">
+            <div className="text-sm text-indigo-600 font-medium">
+              {progress.stage === "trip" && "🗓️ 여행 생성 중..."}
+              {progress.stage === "memo" && `📝 Day ${progress.day}/${progress.total} 일정 저장 중...`}
+              {progress.stage === "waypoint" && `📍 ${progress.place} 위치 검색 중...`}
+              {progress.stage === "done" && "✅ 완료!"}
+            </div>
+            {progress.stage === "waypoint" && progress.place && (
+              <p className="text-xs text-gray-400 truncate max-w-xs mx-auto">{progress.place}</p>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-gray-400">장소 수에 따라 10~30초 소요될 수 있습니다</p>
+      </div>
+    );
+  }
+
+  // ── done ──
+  return (
+    <div className="bg-white rounded-2xl shadow p-10 text-center space-y-5">
+      <span className="text-5xl block">🎉</span>
+      <h2 className="font-bold text-gray-800 text-xl">{destination} 여행이 만들어졌어요!</h2>
+      <p className="text-gray-500 text-sm">
+        AI가 {parsedDays.length}일 일정과 주요 장소를 자동으로 등록했습니다
+      </p>
+      <button onClick={() => router.push(`/trips/${createdTripId}`)}
+        className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow">
+        📋 여행 보러 가기 →
+      </button>
+      <button onClick={() => { recReset(); setStep("form"); }}
+        className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition">
+        새 여행 추천받기
+      </button>
     </div>
   );
 }
