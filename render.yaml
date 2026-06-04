@@ -36,7 +36,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: FRONTEND_URL
-        value: https://frontend-pink-omega-93.vercel.app
+        value: https://vacation-note.vercel.app
       - key: APP_ENV
         value: production
       - key: DEBUG
