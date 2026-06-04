@@ -181,12 +181,12 @@ export default function TripMap({ waypoints, center, onAddPlace }: Props) {
     setSelectedPlace(null);
     clearSearchOverlays();
 
-    const places = new window.kakao.services.Places();
+    const places = new window.kakao.maps.services.Places();
     places.keywordSearch(
       query,
       (data: any[], status: string) => {
         setSearching(false);
-        if (status !== window.kakao.services.Status.OK || !data.length) return;
+        if (status !== window.kakao.maps.services.Status.OK || !data.length) return;
 
         const map = mapInstanceRef.current;
         const bounds = new window.kakao.maps.LatLngBounds();
