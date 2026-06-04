@@ -51,7 +51,7 @@ class Trip(Base):
     days = relationship("TripDay", back_populates="trip", cascade="all, delete-orphan", order_by="TripDay.date")
     memos = relationship("Memo", back_populates="trip", cascade="all, delete-orphan")
     photos = relationship("Photo", back_populates="trip", cascade="all, delete-orphan")
-    premium = relationship("TripPremium", back_populates="trip", uselist=False)
+    premium = relationship("TripPremium", back_populates="trip", uselist=False, cascade="all, delete-orphan")
 
 
 class TripDay(Base):
