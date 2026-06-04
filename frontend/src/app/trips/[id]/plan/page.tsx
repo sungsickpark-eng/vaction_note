@@ -11,6 +11,10 @@ import { ko } from "date-fns/locale";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import MemoPanel from "@/components/memo/MemoPanel";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const TripMap = dynamic(() => import("@/components/map/TripMap"), { ssr: false });
 
@@ -235,6 +239,34 @@ export default function TripPlanPage() {
   const allWaypoints: Waypoint[] =
     (trip as TripDetail | undefined)?.days.flatMap((d) => d.waypoints) ?? [];
 
+  // ── 드래그 정렬 ──────────────────────────────────────────────────────────────
+  const [localWaypoints, setLocalWaypoints] = useState<Waypoint[]>([]);
+
+  useEffect(() => {
+    setLocalWaypoints(selectedDay?.waypoints ?? []);
+  }, [selectedDay?.waypoints]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !selectedDayId) return;
+
+    setLocalWaypoints((prev) => {
+      const oldIdx = prev.findIndex((w) => w.id === active.id);
+      const newIdx = prev.findIndex((w) => w.id === over.id);
+      const reordered = arrayMove(prev, oldIdx, newIdx);
+      waypointsApi.reorder(id, selectedDayId, reordered.map((w) => w.id))
+        .then(() => qc.invalidateQueries({ queryKey: ["trip", id] }));
+      return reordered;
+    });
+  }, [selectedDayId, id, qc]);
+
+  const handleTimeChange = useCallback((wpId: string, time: string) => {
+    waypointsApi.update(wpId, { arrival_time: time || null })
+      .then(() => qc.invalidateQueries({ queryKey: ["trip", id] }));
+  }, [id, qc]);
+
   if (isLoading)
     return <div className="min-h-screen flex items-center justify-center">불러오는 중...</div>;
   if (!trip) return null;
@@ -307,17 +339,22 @@ export default function TripPlanPage() {
                 ) : (
                   <>
                     {/* 추가된 경유지 */}
-                    {selectedDay.waypoints.length > 0 ? (
-                      <ol className="space-y-2">
-                        {selectedDay.waypoints.map((wp, idx) => (
-                          <WaypointItem
-                            key={wp.id}
-                            wp={wp}
-                            idx={idx}
-                            onDelete={() => deleteWaypointMutation.mutate(wp.id)}
-                          />
-                        ))}
-                      </ol>
+                    {localWaypoints.length > 0 ? (
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={localWaypoints.map((w) => w.id)} strategy={verticalListSortingStrategy}>
+                          <ol className="space-y-2">
+                            {localWaypoints.map((wp, idx) => (
+                              <WaypointItem
+                                key={wp.id}
+                                wp={wp}
+                                idx={idx}
+                                onDelete={() => deleteWaypointMutation.mutate(wp.id)}
+                                onTimeChange={handleTimeChange}
+                              />
+                            ))}
+                          </ol>
+                        </SortableContext>
+                      </DndContext>
                     ) : (
                       <div className="text-center text-gray-400 py-6">
                         <span className="text-3xl block mb-2">🗺️</span>
@@ -366,20 +403,52 @@ export default function TripPlanPage() {
 
 // ─── 경유지 아이템 ─────────────────────────────────────────────────────────────
 
-function WaypointItem({ wp, idx, onDelete }: { wp: Waypoint; idx: number; onDelete: () => void }) {
+function WaypointItem({
+  wp, idx, onDelete, onTimeChange,
+}: {
+  wp: Waypoint;
+  idx: number;
+  onDelete: () => void;
+  onTimeChange: (id: string, time: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: wp.id });
+  const [time, setTime] = useState(wp.arrival_time ?? "");
+
+  useEffect(() => { setTime(wp.arrival_time ?? ""); }, [wp.arrival_time]);
+
   return (
-    <li className="flex items-start gap-3 bg-gray-50 rounded-xl p-3 group">
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className="flex items-start gap-2 bg-gray-50 rounded-xl p-3 group"
+    >
+      {/* 드래그 핸들 */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 mt-0.5 px-0.5 touch-none"
+        title="드래그하여 순서 변경"
+      >
+        ⠿
+      </button>
       <span className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white text-xs font-bold rounded-full shrink-0 mt-0.5">
         {idx + 1}
       </span>
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm text-gray-800 truncate">{wp.place_name}</p>
         {wp.address && <p className="text-xs text-gray-400 truncate">{wp.address}</p>}
-        {wp.arrival_time && <p className="text-xs text-indigo-500">⏰ {wp.arrival_time}</p>}
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          onBlur={(e) => onTimeChange(wp.id, e.target.value)}
+          className="mt-1 text-xs text-indigo-600 bg-transparent border-none outline-none cursor-pointer w-24"
+          title="방문 시간 설정"
+        />
       </div>
       <button
         onClick={onDelete}
-        className="text-gray-300 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition shrink-0"
+        className="text-gray-300 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition shrink-0 mt-0.5"
       >✕</button>
     </li>
   );
