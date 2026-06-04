@@ -44,6 +44,7 @@ export interface Waypoint {
   lng?: number;
   visit_date?: string;
   arrival_time?: string;
+  end_time?: string;
   transport_mode?: "walk" | "car" | "transit";
   note?: string;
 }

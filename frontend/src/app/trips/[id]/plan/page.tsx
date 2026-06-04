@@ -262,8 +262,8 @@ export default function TripPlanPage() {
     });
   }, [selectedDayId, id, qc]);
 
-  const handleTimeChange = useCallback((wpId: string, time: string) => {
-    waypointsApi.update(wpId, { arrival_time: time || null })
+  const handleWaypointUpdate = useCallback((wpId: string, data: Partial<Waypoint>) => {
+    waypointsApi.update(wpId, data)
       .then(() => qc.invalidateQueries({ queryKey: ["trip", id] }));
   }, [id, qc]);
 
@@ -342,15 +342,19 @@ export default function TripPlanPage() {
                     {localWaypoints.length > 0 ? (
                       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                         <SortableContext items={localWaypoints.map((w) => w.id)} strategy={verticalListSortingStrategy}>
-                          <ol className="space-y-2">
+                          <ol className="space-y-0">
                             {localWaypoints.map((wp, idx) => (
-                              <WaypointItem
-                                key={wp.id}
-                                wp={wp}
-                                idx={idx}
-                                onDelete={() => deleteWaypointMutation.mutate(wp.id)}
-                                onTimeChange={handleTimeChange}
-                              />
+                              <li key={wp.id} className="list-none">
+                                <WaypointItem
+                                  wp={wp}
+                                  idx={idx}
+                                  onDelete={() => deleteWaypointMutation.mutate(wp.id)}
+                                  onUpdate={handleWaypointUpdate}
+                                />
+                                {idx < localWaypoints.length - 1 && (
+                                  <TravelTimeBar from={wp} to={localWaypoints[idx + 1]} />
+                                )}
+                              </li>
                             ))}
                           </ol>
                         </SortableContext>
@@ -401,55 +405,150 @@ export default function TripPlanPage() {
   );
 }
 
+// ─── 5분 단위 시간 선택기 ─────────────────────────────────────────────────────
+
+const TIME_OPTIONS: string[] = [];
+for (let h = 0; h < 24; h++) {
+  for (let m = 0; m < 60; m += 5) {
+    TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+  }
+}
+
+function TimePicker({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-1.5 py-1 cursor-pointer outline-none hover:border-indigo-300 transition"
+    >
+      <option value="">{placeholder ?? "--:--"}</option>
+      {TIME_OPTIONS.map((t) => (
+        <option key={t} value={t}>{t}</option>
+      ))}
+    </select>
+  );
+}
+
+// ─── 이동시간 계산 (Haversine 거리 기반 추정) ─────────────────────────────────
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const TRANSPORT_META = {
+  walk:    { label: "도보",     emoji: "🚶", speedKmh: 4,  detour: 1.3 },
+  car:     { label: "자가용",   emoji: "🚗", speedKmh: 35, detour: 1.4 },
+  transit: { label: "대중교통", emoji: "🚌", speedKmh: 22, detour: 1.7 },
+} as const;
+
+function TravelTimeBar({ from, to }: { from: Waypoint; to: Waypoint }) {
+  if (!from.lat || !from.lng || !to.lat || !to.lng) return null;
+
+  const mode = (to.transport_mode ?? "car") as keyof typeof TRANSPORT_META;
+  const meta = TRANSPORT_META[mode];
+  const distKm = haversineKm(from.lat, from.lng, to.lat, to.lng);
+  const mins = Math.max(5, Math.round((distKm * meta.detour) / meta.speedKmh * 60 / 5) * 5);
+
+  const kakaoLink = mode === "transit"
+    ? `https://map.kakao.com/link/from/${encodeURIComponent(from.place_name)},${from.lat},${from.lng}/to/${encodeURIComponent(to.place_name)},${to.lat},${to.lng}`
+    : null;
+
+  return (
+    <div className="flex items-center gap-2 pl-8 py-1 text-xs text-gray-400">
+      <span className="w-px h-4 bg-indigo-200 shrink-0" />
+      <span>{meta.emoji}</span>
+      <span className="font-medium text-gray-500">
+        {meta.label} 약 {mins >= 60 ? `${Math.floor(mins / 60)}시간 ${mins % 60 > 0 ? `${mins % 60}분` : ""}` : `${mins}분`}
+      </span>
+      <span className="text-gray-300">({distKm.toFixed(1)}km)</span>
+      {kakaoLink && (
+        <a href={kakaoLink} target="_blank" rel="noopener noreferrer"
+          className="ml-auto text-blue-500 hover:underline flex items-center gap-0.5">
+          카카오맵 길찾기 →
+        </a>
+      )}
+    </div>
+  );
+}
+
 // ─── 경유지 아이템 ─────────────────────────────────────────────────────────────
 
 function WaypointItem({
-  wp, idx, onDelete, onTimeChange,
+  wp, idx, onDelete, onUpdate,
 }: {
   wp: Waypoint;
   idx: number;
   onDelete: () => void;
-  onTimeChange: (id: string, time: string) => void;
+  onUpdate: (id: string, data: Partial<Waypoint>) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: wp.id });
-  const [time, setTime] = useState(wp.arrival_time ?? "");
+  const [startTime, setStartTime] = useState(wp.arrival_time ?? "");
+  const [endTime, setEndTime] = useState(wp.end_time ?? "");
 
-  useEffect(() => { setTime(wp.arrival_time ?? ""); }, [wp.arrival_time]);
+  useEffect(() => { setStartTime(wp.arrival_time ?? ""); }, [wp.arrival_time]);
+  useEffect(() => { setEndTime(wp.end_time ?? ""); }, [wp.end_time]);
+
+  const mode = (wp.transport_mode ?? "car") as keyof typeof TRANSPORT_META;
 
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-      className="flex items-start gap-2 bg-gray-50 rounded-xl p-3 group"
+      className="flex items-start gap-2 bg-white border border-gray-100 rounded-xl p-3 shadow-sm group"
     >
       {/* 드래그 핸들 */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 mt-0.5 px-0.5 touch-none"
-        title="드래그하여 순서 변경"
-      >
+      <button {...attributes} {...listeners}
+        className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 mt-0.5 px-0.5 touch-none">
         ⠿
       </button>
+
+      {/* 번호 뱃지 */}
       <span className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white text-xs font-bold rounded-full shrink-0 mt-0.5">
         {idx + 1}
       </span>
-      <div className="flex-1 min-w-0">
+
+      <div className="flex-1 min-w-0 space-y-1.5">
         <p className="font-medium text-sm text-gray-800 truncate">{wp.place_name}</p>
         {wp.address && <p className="text-xs text-gray-400 truncate">{wp.address}</p>}
-        <input
-          type="time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          onBlur={(e) => onTimeChange(wp.id, e.target.value)}
-          className="mt-1 text-xs text-indigo-600 bg-transparent border-none outline-none cursor-pointer w-24"
-          title="방문 시간 설정"
-        />
+
+        {/* 이동수단 + 시간 */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* 이동수단 선택 */}
+          <div className="flex gap-1">
+            {(["walk", "car", "transit"] as const).map((m) => (
+              <button key={m}
+                onClick={() => onUpdate(wp.id, { transport_mode: m })}
+                title={TRANSPORT_META[m].label}
+                className={`text-sm px-1.5 py-0.5 rounded-lg transition ${mode === m ? "bg-indigo-100 ring-1 ring-indigo-300" : "hover:bg-gray-100"}`}>
+                {TRANSPORT_META[m].emoji}
+              </button>
+            ))}
+          </div>
+
+          {/* 시작 ~ 종료 시간 */}
+          <div className="flex items-center gap-1">
+            <TimePicker value={startTime}
+              onChange={(v) => { setStartTime(v); onUpdate(wp.id, { arrival_time: v || undefined }); }}
+              placeholder="시작" />
+            <span className="text-gray-300 text-xs">~</span>
+            <TimePicker value={endTime}
+              onChange={(v) => { setEndTime(v); onUpdate(wp.id, { end_time: v || undefined }); }}
+              placeholder="종료" />
+          </div>
+        </div>
       </div>
-      <button
-        onClick={onDelete}
-        className="text-gray-300 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition shrink-0 mt-0.5"
-      >✕</button>
+
+      <button onClick={onDelete}
+        className="text-gray-300 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition shrink-0 mt-0.5">
+        ✕
+      </button>
     </li>
   );
 }

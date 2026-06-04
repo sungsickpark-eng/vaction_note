@@ -102,6 +102,7 @@ class WaypointCreate(BaseModel):
     lng: Optional[float] = None
     visit_date: Optional[date] = None
     arrival_time: Optional[time] = None
+    end_time: Optional[time] = None
     transport_mode: Optional[str] = "car"
     note: Optional[str] = None
     order: int = 0
@@ -113,6 +114,7 @@ class WaypointUpdate(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     arrival_time: Optional[time] = None
+    end_time: Optional[time] = None
     transport_mode: Optional[str] = None
     note: Optional[str] = None
     order: Optional[int] = None
@@ -131,6 +133,7 @@ class WaypointResponse(BaseModel):
     lng: Optional[float] = None
     visit_date: Optional[date] = None
     arrival_time: Optional[time] = None
+    end_time: Optional[time] = None
     transport_mode: Optional[str] = None
     note: Optional[str] = None
 

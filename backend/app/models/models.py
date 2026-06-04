@@ -80,6 +80,7 @@ class Waypoint(Base):
     lng = Column(Float, nullable=True)
     visit_date = Column(Date, nullable=True)
     arrival_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
     transport_mode = Column(
         SAEnum("walk", "car", "transit", name="transport_enum", native_enum=False),
         default="car",
